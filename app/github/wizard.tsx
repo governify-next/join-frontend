@@ -92,15 +92,15 @@ export function JoinWizard({ initial, governifyUrl }: { initial?: Onboarding; go
     if (!installationId || !onboardingId) return;
     let cancelled = false;
     const load = async () => {
-      try {
-        const [repos, orgs] = await Promise.all([
+      const [repositoryResult, organizationResult] = await Promise.allSettled([
           api<Repository[]>(`/onboardings/${onboardingId}/repositories`),
           api<Organization[]>(`/onboardings/${onboardingId}/organizations`),
-        ]);
-        if (!cancelled) { setRepositories(repos); setOrganizations(orgs); }
-      } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to load resources");
-      }
+      ]);
+      if (cancelled) return;
+      if (repositoryResult.status === "fulfilled") setRepositories(repositoryResult.value);
+      if (organizationResult.status === "fulfilled") setOrganizations(organizationResult.value);
+      const failure = repositoryResult.status === "rejected" ? repositoryResult.reason : organizationResult.status === "rejected" ? organizationResult.reason : undefined;
+      if (failure) setError(failure instanceof Error ? failure.message : "Unable to load resources");
     };
     void load();
     return () => { cancelled = true; };
