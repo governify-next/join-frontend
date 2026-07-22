@@ -12,7 +12,7 @@ export async function loginAction(
 ): Promise<LoginState> {
   const login = String(formData.get("login") || "").trim();
   const password = String(formData.get("password") || "");
-  const returnTo = String(formData.get("returnTo") || "/github");
+  const returnTo = String(formData.get("returnTo") || "/");
   if (login.length < 3 || password.length < 6)
     return { error: "Enter a valid login and password." };
   try {
@@ -30,5 +30,5 @@ export async function loginAction(
   } catch {
     return { error: "The account service is unavailable." };
   }
-  redirect(returnTo.startsWith("/") ? returnTo : "/github");
+  redirect(returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/");
 }

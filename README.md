@@ -1,8 +1,8 @@
 # Governify Join Frontend
 
-Next.js wizard for onboarding provider projects into Governify. `/github` uses Registry's public agreement templates with GitHub Projects V2 and can restore an onboarding from `?onboarding=<id>`.
+Next.js wizard for onboarding provider projects into Governify. The login-protected root page uses Join Backend's local demo catalog and can restore an onboarding from `?onboarding=<id>`.
 
-The current selectable agreement is a four-metric projection of Registry's public `CS169L-Sp26` Swagger example.
+Each selected agreement returns a versioned onboarding definition. The wizard renders its integration steps and requirement groups directly from that contract, including dependent resource selectors, single/multiple choices, text, validity, review, and provisioning progress. GitHub uses live resources while ZenHub uses explicit demo mocks. Join Backend publishes the completed Scope, Agreement collection and Agreement version, starts an immediate calculation and schedules hourly calculations.
 
 The browser talks only to same-origin Next route handlers. Governify access and refresh tokens remain in secure HTTP-only cookies and external service URLs remain server-side.
 
@@ -15,4 +15,4 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000/github`.
+Open `http://localhost:3000`.

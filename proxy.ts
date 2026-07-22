@@ -6,7 +6,7 @@ export default async function proxy(request: NextRequest) {
   const access = request.cookies.get(env.ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(env.REFRESH_COOKIE)?.value;
   if (access) {
-    if (publicRoute) return NextResponse.redirect(new URL("/github", request.url));
+    if (publicRoute) return NextResponse.redirect(new URL("/", request.url));
     return NextResponse.next();
   }
   if (refresh) {
@@ -21,7 +21,7 @@ export default async function proxy(request: NextRequest) {
         request.cookies.set(env.ACCESS_COOKIE, body.data.token);
         request.cookies.set(env.REFRESH_COOKIE, body.data.refreshToken);
         const result = publicRoute
-          ? NextResponse.redirect(new URL("/github", request.url))
+          ? NextResponse.redirect(new URL("/", request.url))
           : NextResponse.next({ request: { headers: request.headers } });
         result.cookies.set(env.ACCESS_COOKIE, body.data.token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: env.ACCESS_MAX_AGE });
         result.cookies.set(env.REFRESH_COOKIE, body.data.refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: env.REFRESH_MAX_AGE });
