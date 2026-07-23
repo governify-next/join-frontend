@@ -2,6 +2,12 @@ import type { Requirement, ResourceOption } from "./types";
 
 const serialized = (value: unknown) => JSON.stringify(value);
 
+export type ResourceAction = {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+};
+
 export function RequirementField({
   requirement,
   value,
@@ -9,6 +15,7 @@ export function RequirementField({
   loading,
   dependenciesReady,
   search,
+  resourceActions = [],
   onSearch,
   onChange,
 }: {
@@ -18,6 +25,7 @@ export function RequirementField({
   loading: boolean;
   dependenciesReady: boolean;
   search: string;
+  resourceActions?: ResourceAction[];
   onSearch: (value: string) => void;
   onChange: (value: unknown) => void;
 }) {
@@ -113,6 +121,33 @@ export function RequirementField({
         </div>
       ) : (
         <div className="notice">No values are available for this field.</div>
+      )}
+      {resourceActions.length > 0 && (
+        <div className="actions">
+          {resourceActions.map((action) =>
+            action.href ? (
+              <a
+                className="button secondary"
+                href={action.href}
+                key={`${action.label}:${action.href}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={action.onClick}
+              >
+                {action.label}
+              </a>
+            ) : (
+              <button
+                className="button secondary"
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+              >
+                {action.label}
+              </button>
+            ),
+          )}
+        </div>
       )}
     </div>
   );

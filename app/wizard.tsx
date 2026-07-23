@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RequirementField } from "./requirement-field";
+import { RequirementField, type ResourceAction } from "./requirement-field";
 import type {
   IntegrationProvider,
   Onboarding,
@@ -75,7 +75,10 @@ const integrationConnected = (
   provider: IntegrationProvider,
 ) =>
   provider === "github"
-    ? Boolean(onboarding.integrations?.github?.installationId)
+    ? Boolean(
+        onboarding.integrations?.github?.installationId ||
+          onboarding.integrations?.github?.installations?.length,
+      )
     : Boolean(onboarding.integrations?.zenhub?.connectionId);
 
 const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
@@ -217,6 +220,8 @@ export function JoinWizard({
   );
   const [options, setOptions] = useState<Record<string, ResourceOption[]>>({});
   const [optionLoading, setOptionLoading] = useState<Record<string, boolean>>({});
+  const [optionRefresh, setOptionRefresh] = useState(0);
+  const [repositoryPollingUntil, setRepositoryPollingUntil] = useState(0);
   const [searches, setSearches] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -282,8 +287,11 @@ export function JoinWizard({
     return () => clearInterval(timer);
   }, [onboarding?.status, refresh]);
 
-  const activeRequirements =
-    activeStep?.kind === "requirements" ? activeStep.requirements : [];
+  const activeRequirements = useMemo(
+    () =>
+      activeStep?.kind === "requirements" ? activeStep.requirements : [],
+    [activeStep],
+  );
   const optionDependencyKey = JSON.stringify(
     activeRequirements.flatMap((requirement) =>
       (requirement.dependsOn || []).map((dependency) => [
@@ -329,7 +337,43 @@ export function JoinWizard({
     };
     // answers are represented by the dependency key to avoid reloading options for unrelated text fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStep?.id, onboarding?._id, optionDependencyKey]);
+  }, [activeStep?.id, onboarding?._id, optionDependencyKey, optionRefresh]);
+
+  useEffect(() => {
+    if (
+      !repositoryPollingUntil ||
+      !activeRequirements.some(({ id }) => id === "github_repository")
+    )
+      return;
+    const refreshRepositories = () => {
+      if (Date.now() >= repositoryPollingUntil) {
+        setRepositoryPollingUntil(0);
+        return;
+      }
+      setOptionRefresh((current) => current + 1);
+    };
+    refreshRepositories();
+    const timer = setInterval(refreshRepositories, 3_000);
+    return () => clearInterval(timer);
+  }, [activeRequirements, repositoryPollingUntil]);
+
+  const githubRepositoryActions = useMemo<ResourceAction[]>(() => {
+    const installations = onboarding?.integrations?.github?.installations || [];
+    const configurationActions = installations
+      .filter(({ htmlUrl }) => Boolean(htmlUrl))
+      .map(({ accountLogin, htmlUrl }) => ({
+        label: `Manage access for ${accountLogin}`,
+        href: htmlUrl,
+        onClick: () => setRepositoryPollingUntil(Date.now() + 2 * 60_000),
+      }));
+    return [
+      ...configurationActions,
+      {
+        label: "Refresh repositories",
+        onClick: () => setOptionRefresh((current) => current + 1),
+      },
+    ];
+  }, [onboarding?.integrations?.github?.installations]);
 
   const createOnboarding = () =>
     run(async () => {
@@ -550,6 +594,11 @@ export function JoinWizard({
                   (dependency) => answers[dependency] !== undefined,
                 )}
                 search={searches[requirement.id] || ""}
+                resourceActions={
+                  requirement.id === "github_repository"
+                    ? githubRepositoryActions
+                    : undefined
+                }
                 onSearch={(value) =>
                   setSearches((current) => ({ ...current, [requirement.id]: value }))
                 }
@@ -696,7 +745,12 @@ function IntegrationStep({
   const connected = integrationConnected(onboarding, provider);
   const account =
     provider === "github"
-      ? onboarding.integrations?.github?.accountLogin
+      ? onboarding.integrations?.github?.accountLogin ||
+        (onboarding.integrations?.github?.installations?.length === 1
+          ? onboarding.integrations.github.installations[0].accountLogin
+          : onboarding.integrations?.github?.installations?.length
+            ? `${onboarding.integrations.github.installations.length} GitHub accounts`
+            : undefined)
       : onboarding.integrations?.zenhub?.accountName;
   return (
     <>
@@ -706,7 +760,7 @@ function IntegrationStep({
         <p>
           {module.authorization === "mock"
             ? "This demo uses deterministic mock data and does not contact ZenHub."
-            : "Authorize the GitHub App so Join can discover only the resources granted to it."}
+            : "Connect GitHub once. Join will reuse existing installations or guide you through installation when needed."}
         </p>
       </div>
       {connected ? (
@@ -728,7 +782,7 @@ function IntegrationStep({
           </button>
         ) : (
           <button className="button" onClick={onConnect} disabled={busy}>
-            {module.authorization === "mock" ? "Connect demo" : "Install GitHub App"}
+            {module.authorization === "mock" ? "Connect demo" : "Connect GitHub"}
           </button>
         )}
       </div>

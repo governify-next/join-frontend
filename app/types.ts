@@ -62,6 +62,13 @@ export type ResourceOption = {
   value: unknown;
 };
 
+export type GitHubInstallation = {
+  id: number;
+  accountLogin: string;
+  accountType: string;
+  htmlUrl: string;
+};
+
 export type Onboarding = {
   _id: string;
   status:
@@ -76,7 +83,12 @@ export type Onboarding = {
   onboardingDefinition: OnboardingDefinition;
   requiredIntegrations: IntegrationProvider[];
   integrations?: {
-    github?: { installationId?: number; accountLogin?: string };
+    github?: {
+      installationId?: number;
+      accountLogin?: string;
+      accountType?: string;
+      installations?: GitHubInstallation[];
+    };
     zenhub?: { connectionId?: string; accountName?: string; mocked?: boolean };
   };
   answers?: Record<string, unknown>;
