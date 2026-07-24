@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { RequirementField, type ResourceAction } from "./requirement-field";
 import type {
   IntegrationProvider,
@@ -13,6 +19,12 @@ import type {
 } from "./types";
 
 type Answers = Record<string, unknown>;
+type RequirementGroup = {
+  id: string;
+  title: string;
+  description: string;
+  requirements: Requirement[];
+};
 type WizardStep =
   | { id: "agreement"; label: string; kind: "agreement" }
   | {
@@ -20,6 +32,7 @@ type WizardStep =
       label: string;
       kind: "integration";
       module: OnboardingModule;
+      groups: RequirementGroup[];
     }
   | {
       id: string;
@@ -81,33 +94,51 @@ const integrationConnected = (
       )
     : Boolean(onboarding.integrations?.zenhub?.connectionId);
 
-const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
-  if (!definition) return [{ id: "agreement", label: "Agreement", kind: "agreement" }];
-  const integrations: WizardStep[] = definition.modules
-    .filter((module) => module.kind === "external")
-    .map((module) => ({
-      id: `integration-${module.id}`,
-      label: `${module.label} access`,
-      kind: "integration" as const,
-      module,
-    }));
+const groupRequirements = (requirements: Requirement[]): RequirementGroup[] => {
   const groups = new Map<string, Requirement[]>();
-  for (const requirement of definition.requirements) {
+  for (const requirement of requirements) {
     groups.set(requirement.ui.step, [
       ...(groups.get(requirement.ui.step) || []),
       requirement,
     ]);
   }
-  const requirementSteps: WizardStep[] = [...groups.entries()].map(
-    ([id, requirements]) => ({
-      id: `requirements-${id}`,
-      label: requirements[0].ui.stepTitle,
-      kind: "requirements",
-      title: requirements[0].ui.stepTitle,
-      description: requirements[0].ui.stepDescription,
-      requirements,
-    }),
+  return [...groups.entries()].map(([id, grouped]) => ({
+    id,
+    title: grouped[0].ui.stepTitle,
+    description: grouped[0].ui.stepDescription,
+    requirements: grouped,
+  }));
+};
+
+const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
+  if (!definition) return [{ id: "agreement", label: "Agreement", kind: "agreement" }];
+  const externalModules = definition.modules.filter(
+    (module) => module.kind === "external",
   );
+  const externalModuleIds = new Set(externalModules.map(({ id }) => id));
+  const integrations: WizardStep[] = externalModules.map((module) => ({
+    id: `integration-${module.id}`,
+    label: module.label,
+    kind: "integration" as const,
+    module,
+    groups: groupRequirements(
+      definition.requirements.filter(
+        (requirement) => requirement.module === module.id,
+      ),
+    ),
+  }));
+  const requirementSteps: WizardStep[] = groupRequirements(
+    definition.requirements.filter(
+      (requirement) => !externalModuleIds.has(requirement.module),
+    ),
+  ).map((group) => ({
+      id: `requirements-${group.id}`,
+      label: group.title,
+      kind: "requirements",
+      title: group.title,
+      description: group.description,
+      requirements: group.requirements,
+    }));
   return [
     { id: "agreement", label: "Agreement", kind: "agreement" },
     ...integrations,
@@ -156,10 +187,15 @@ const initialStep = (
   const missingIntegration = steps.findIndex(
     (candidate) =>
       candidate.kind === "integration" &&
-      !integrationConnected(
+      (!integrationConnected(
         onboarding,
         candidate.module.id as IntegrationProvider,
-      ),
+      ) ||
+        candidate.groups.some((group) =>
+          group.requirements.some(
+            (requirement) => !complete(requirement, answers[requirement.id]),
+          ),
+        )),
   );
   if (missingIntegration >= 0) return missingIntegration;
   const incomplete = steps.findIndex(
@@ -172,6 +208,60 @@ const initialStep = (
   return incomplete >= 0
     ? incomplete
     : steps.findIndex(({ kind }) => kind === "review");
+};
+
+const initialIntegrationSubstep = (
+  onboarding: Onboarding,
+  integration: Extract<WizardStep, { kind: "integration" }>,
+  answers: Answers,
+) => {
+  if (
+    !integrationConnected(
+      onboarding,
+      integration.module.id as IntegrationProvider,
+    )
+  )
+    return 0;
+  const incomplete = integration.groups.findIndex((group) =>
+    group.requirements.some(
+      (requirement) => !complete(requirement, answers[requirement.id]),
+    ),
+  );
+  return incomplete >= 0
+    ? incomplete + 1
+    : Math.max(integration.groups.length, 0);
+};
+
+const initialIntegrationSubsteps = (
+  onboarding: Onboarding | undefined,
+  answers: Answers,
+  steps: WizardStep[],
+) =>
+  onboarding
+    ? Object.fromEntries(
+        steps
+          .filter(
+            (
+              candidate,
+            ): candidate is Extract<WizardStep, { kind: "integration" }> =>
+              candidate.kind === "integration",
+          )
+          .map((integration) => [
+            integration.id,
+            initialIntegrationSubstep(onboarding, integration, answers),
+          ]),
+      )
+    : {};
+
+const integrationSubstepLabel = (
+  module: OnboardingModule,
+  group: RequirementGroup,
+) => {
+  const prefix = `${module.label} `;
+  const label = group.title.startsWith(prefix)
+    ? group.title.slice(prefix.length)
+    : group.title;
+  return label ? `${label[0].toUpperCase()}${label.slice(1)}` : group.title;
 };
 
 const displayValue = (value: unknown): string => {
@@ -218,6 +308,9 @@ export function JoinWizard({
   const [step, setStep] = useState(() =>
     initialStep(initial, initialAnswers, initialSteps),
   );
+  const [integrationSubsteps, setIntegrationSubsteps] = useState<
+    Record<string, number>
+  >(() => initialIntegrationSubsteps(initial, initialAnswers, initialSteps));
   const [options, setOptions] = useState<Record<string, ResourceOption[]>>({});
   const [optionLoading, setOptionLoading] = useState<Record<string, boolean>>({});
   const [optionRefresh, setOptionRefresh] = useState(0);
@@ -229,6 +322,11 @@ export function JoinWizard({
   const definition = onboarding?.onboardingDefinition;
   const steps = useMemo(() => buildSteps(definition), [definition]);
   const activeStep = steps[step];
+  const activeIntegrationSubstep =
+    activeStep?.kind === "integration" && onboarding
+      ? (integrationSubsteps[activeStep.id] ??
+        initialIntegrationSubstep(onboarding, activeStep, answers))
+      : 0;
   const selectedTemplate = templates.find(
     ({ agreementTemplate }) => agreementTemplate._id === templateId,
   );
@@ -288,9 +386,23 @@ export function JoinWizard({
   }, [onboarding?.status, refresh]);
 
   const activeRequirements = useMemo(
-    () =>
-      activeStep?.kind === "requirements" ? activeStep.requirements : [],
-    [activeStep],
+    () => {
+      if (activeStep?.kind === "requirements") return activeStep.requirements;
+      if (
+        activeStep?.kind === "integration" &&
+        onboarding &&
+        integrationConnected(
+          onboarding,
+          activeStep.module.id as IntegrationProvider,
+        ) &&
+        activeIntegrationSubstep > 0
+      )
+        return (
+          activeStep.groups[activeIntegrationSubstep - 1]?.requirements || []
+        );
+      return [];
+    },
+    [activeIntegrationSubstep, activeStep, onboarding],
   );
   const optionDependencyKey = JSON.stringify(
     activeRequirements.flatMap((requirement) =>
@@ -337,7 +449,13 @@ export function JoinWizard({
     };
     // answers are represented by the dependency key to avoid reloading options for unrelated text fields.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStep?.id, onboarding?._id, optionDependencyKey, optionRefresh]);
+  }, [
+    activeIntegrationSubstep,
+    activeStep?.id,
+    onboarding?._id,
+    optionDependencyKey,
+    optionRefresh,
+  ]);
 
   useEffect(() => {
     if (
@@ -387,6 +505,9 @@ export function JoinWizard({
       setOnboarding(value);
       setAnswers(nextAnswers);
       setStep(initialStep(value, nextAnswers, nextSteps));
+      setIntegrationSubsteps(
+        initialIntegrationSubsteps(value, nextAnswers, nextSteps),
+      );
       history.replaceState(null, "", `/?onboarding=${value._id}`);
     });
 
@@ -404,7 +525,18 @@ export function JoinWizard({
       }
       if (!value.onboarding) throw new Error("Integration did not return a connection");
       setOnboarding(value.onboarding);
-      setStep((current) => current + 1);
+      if (
+        activeStep?.kind === "integration" &&
+        activeStep.module.id === provider &&
+        activeStep.groups.length
+      ) {
+        setIntegrationSubsteps((current) => ({
+          ...current,
+          [activeStep.id]: 1,
+        }));
+      } else {
+        setStep((current) => current + 1);
+      }
     });
 
   const updateAnswer = (requirementId: string, value: unknown) => {
@@ -461,6 +593,68 @@ export function JoinWizard({
     });
   };
 
+  const continueIntegration = () => {
+    if (activeStep?.kind !== "integration" || !onboarding) return;
+    const integration = activeStep;
+    const provider = integration.module.id as IntegrationProvider;
+    if (activeIntegrationSubstep === 0) {
+      if (!integrationConnected(onboarding, provider)) {
+        void connect(provider);
+        return;
+      }
+      if (!integration.groups.length) {
+        setStep((current) => current + 1);
+        return;
+      }
+      setIntegrationSubsteps((current) => ({
+        ...current,
+        [integration.id]: 1,
+      }));
+      return;
+    }
+
+    const group = integration.groups[activeIntegrationSubstep - 1];
+    if (!group) return;
+    const missing = group.requirements.find(
+      (requirement) => !complete(requirement, answers[requirement.id]),
+    );
+    if (missing) {
+      setError(`Complete '${missing.ui.label}' before continuing.`);
+      return;
+    }
+    void run(async () => {
+      const value = await api<Onboarding>(
+        `/onboardings/${onboarding._id}/answers`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ answers }),
+        },
+      );
+      setOnboarding(value);
+      setAnswers(value.answers || answers);
+      if (activeIntegrationSubstep < integration.groups.length) {
+        setIntegrationSubsteps((current) => ({
+          ...current,
+          [integration.id]: activeIntegrationSubstep + 1,
+        }));
+      } else {
+        setStep((current) => current + 1);
+      }
+    });
+  };
+
+  const backIntegration = () => {
+    if (activeStep?.kind !== "integration") return;
+    if (activeIntegrationSubstep > 0) {
+      setIntegrationSubsteps((current) => ({
+        ...current,
+        [activeStep.id]: activeIntegrationSubstep - 1,
+      }));
+      return;
+    }
+    setStep((current) => current - 1);
+  };
+
   const provision = (retry = false) =>
     run(async () => {
       const value = await api<Onboarding>(
@@ -476,6 +670,29 @@ export function JoinWizard({
   const progress = Math.round(
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
   );
+  const renderRequirementFields = (requirements: Requirement[]) =>
+    requirements.map((requirement) => (
+      <RequirementField
+        key={requirement.id}
+        requirement={requirement}
+        value={answers[requirement.id]}
+        options={options[requirement.id] || []}
+        loading={Boolean(optionLoading[requirement.id])}
+        dependenciesReady={(requirement.dependsOn || []).every(
+          (dependency) => answers[dependency] !== undefined,
+        )}
+        search={searches[requirement.id] || ""}
+        resourceActions={
+          requirement.id === "github_repository"
+            ? githubRepositoryActions
+            : undefined
+        }
+        onSearch={(value) =>
+          setSearches((current) => ({ ...current, [requirement.id]: value }))
+        }
+        onChange={(value) => updateAnswer(requirement.id, value)}
+      />
+    ));
 
   return (
     <div className="wizard">
@@ -568,12 +785,20 @@ export function JoinWizard({
         {activeStep?.kind === "integration" && (
           <IntegrationStep
             module={activeStep.module}
+            groups={activeStep.groups}
+            substep={activeIntegrationSubstep}
             onboarding={onboarding!}
             busy={busy}
-            onBack={() => setStep((current) => current - 1)}
-            onConnect={() => connect(activeStep.module.id as IntegrationProvider)}
-            onContinue={() => setStep((current) => current + 1)}
-          />
+            onBack={backIntegration}
+            onContinue={continueIntegration}
+          >
+            {activeIntegrationSubstep > 0
+              ? renderRequirementFields(
+                  activeStep.groups[activeIntegrationSubstep - 1]
+                    ?.requirements || [],
+                )
+              : null}
+          </IntegrationStep>
         )}
 
         {activeStep?.kind === "requirements" && (
@@ -583,28 +808,7 @@ export function JoinWizard({
               <h2>{activeStep.title}</h2>
               <p>{activeStep.description}</p>
             </div>
-            {activeStep.requirements.map((requirement) => (
-              <RequirementField
-                key={requirement.id}
-                requirement={requirement}
-                value={answers[requirement.id]}
-                options={options[requirement.id] || []}
-                loading={Boolean(optionLoading[requirement.id])}
-                dependenciesReady={(requirement.dependsOn || []).every(
-                  (dependency) => answers[dependency] !== undefined,
-                )}
-                search={searches[requirement.id] || ""}
-                resourceActions={
-                  requirement.id === "github_repository"
-                    ? githubRepositoryActions
-                    : undefined
-                }
-                onSearch={(value) =>
-                  setSearches((current) => ({ ...current, [requirement.id]: value }))
-                }
-                onChange={(value) => updateAnswer(requirement.id, value)}
-              />
-            ))}
+            {renderRequirementFields(activeStep.requirements)}
             <div className="actions">
               <button
                 className="button secondary"
@@ -728,21 +932,26 @@ export function JoinWizard({
 
 function IntegrationStep({
   module,
+  groups,
+  substep,
   onboarding,
   busy,
   onBack,
-  onConnect,
   onContinue,
+  children,
 }: {
   module: OnboardingModule;
+  groups: RequirementGroup[];
+  substep: number;
   onboarding: Onboarding;
   busy: boolean;
   onBack: () => void;
-  onConnect: () => void;
   onContinue: () => void;
+  children?: ReactNode;
 }) {
   const provider = module.id as IntegrationProvider;
   const connected = integrationConnected(onboarding, provider);
+  const group = substep > 0 ? groups[substep - 1] : undefined;
   const account =
     provider === "github"
       ? onboarding.integrations?.github?.accountLogin ||
@@ -756,35 +965,68 @@ function IntegrationStep({
     <>
       <div>
         <div className="eyebrow">Required integration</div>
-        <h2>Connect {module.label}</h2>
+        <h2>{module.label}</h2>
         <p>
           {module.authorization === "mock"
-            ? "This demo uses deterministic mock data and does not contact ZenHub."
-            : "Connect GitHub once. Join will reuse existing installations or guide you through installation when needed."}
+            ? "Connect the demo and complete its required configuration in one guided step."
+            : "Connect GitHub and complete the repository, Project and member configuration required by this agreement."}
         </p>
       </div>
-      {connected ? (
-        <div className="notice success">Connected to {account || module.label}</div>
-      ) : (
-        <div className="notice">
-          {module.authorization === "mock"
-            ? "A simulated workspace and users will become available."
-            : "GitHub will return you to this onboarding after authorization."}
-        </div>
-      )}
+      <div className="integration-substeps" aria-label={`${module.label} setup progress`}>
+        {["Connect", ...groups.map((candidate) =>
+          integrationSubstepLabel(module, candidate),
+        )].map((label, index) => (
+          <div
+            className={`integration-substep ${index === substep ? "active" : ""} ${index < substep ? "done" : ""}`}
+            key={`${index}:${label}`}
+          >
+            <span>{index < substep ? "✓" : index + 1}</span>
+            <strong>{label}</strong>
+          </div>
+        ))}
+      </div>
+      {substep === 0 ? (
+        <>
+          <div>
+            <h3>Connect {module.label}</h3>
+            <p>
+              {module.authorization === "mock"
+                ? "This demo uses deterministic data and does not contact ZenHub."
+                : "Join discovers existing GitHub App installations first and only requests installation when needed."}
+            </p>
+          </div>
+          {connected ? (
+            <div className="notice success">
+              Connected to {account || module.label}
+            </div>
+          ) : (
+            <div className="notice">
+              {module.authorization === "mock"
+                ? "A simulated workspace and users will become available."
+                : "GitHub will return you to this same setup step after authorization."}
+            </div>
+          )}
+        </>
+      ) : group ? (
+        <>
+          <div>
+            <h3>{group.title}</h3>
+            <p>{group.description}</p>
+          </div>
+          {children}
+        </>
+      ) : null}
       <div className="actions">
         <button className="button secondary" onClick={onBack}>
           Back
         </button>
-        {connected ? (
-          <button className="button" onClick={onContinue}>
-            Continue
-          </button>
-        ) : (
-          <button className="button" onClick={onConnect} disabled={busy}>
-            {module.authorization === "mock" ? "Connect demo" : "Connect GitHub"}
-          </button>
-        )}
+        <button className="button" onClick={onContinue} disabled={busy}>
+          {substep === 0 && !connected
+            ? module.authorization === "mock"
+              ? "Connect demo"
+              : "Connect GitHub"
+            : "Continue"}
+        </button>
       </div>
     </>
   );

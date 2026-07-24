@@ -30,6 +30,7 @@ button { cursor: pointer; }
 .eyebrow { color: var(--primary); font-size: 13px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
 h1 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; line-height: 1.08; }
 h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.02em; }
+h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.01em; }
 p { color: var(--muted); line-height: 1.55; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: 0 8px 30px rgba(23, 46, 55, .05); }
 .wizard { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
@@ -38,6 +39,15 @@ p { color: var(--muted); line-height: 1.55; }
 .step.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; }
 .step.done { color: var(--success); }
 .step-index { width: 24px; height: 24px; border: 1px solid currentColor; border-radius: 50%; display: grid; place-items: center; font-size: 12px; flex: none; }
+.integration-substeps { display: flex; align-items: flex-start; overflow-x: auto; padding: 4px 0 8px; }
+.integration-substep { min-width: 100px; color: var(--muted); display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 7px; position: relative; font-size: 12px; }
+.integration-substep:not(:last-child) { flex: 1; padding-right: 14px; }
+.integration-substep:not(:last-child)::after { content: ""; position: absolute; left: 28px; right: 0; top: 13px; height: 1px; background: var(--border); z-index: 0; }
+.integration-substep > span { width: 28px; height: 28px; border: 1px solid currentColor; border-radius: 50%; background: var(--surface); display: grid; place-items: center; position: relative; z-index: 1; }
+.integration-substep > strong { background: var(--surface); padding-right: 6px; position: relative; z-index: 1; }
+.integration-substep.active { color: var(--primary-dark); }
+.integration-substep.active > span { background: var(--primary); border-color: var(--primary); color: white; }
+.integration-substep.done { color: var(--success); }
 .stack { display: flex; flex-direction: column; gap: 18px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 6px; }
