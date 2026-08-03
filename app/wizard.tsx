@@ -317,10 +317,13 @@ const statusColumnNames: Record<string, Set<string>> = {
   ]),
 };
 
-const suggestedStatusValues = (
+const suggestedResourceValues = (
   requirement: Requirement,
   options: ResourceOption[],
 ) => {
+    if (requirement.id === "github_users") {
+    return options.map(({ value }) => value);
+  }
   const names = statusColumnNames[requirement.id];
   if (!names || requirement.cardinality !== "many") return [];
   return options
@@ -475,7 +478,7 @@ export function JoinWizard({
         );
         if (!cancelled) {
           setOptions((current) => ({ ...current, [requirement.id]: values }));
-          const suggested = suggestedStatusValues(requirement, values);
+          const suggested = suggestedResourceValues(requirement, values);
           if (suggested.length) {
             setAnswers((current) =>
               current[requirement.id] === undefined
