@@ -288,6 +288,51 @@ const slug = (value: string) =>
     .replace(/^-|-$/g, "")
     .slice(0, 100);
 
+const normalizedStatus = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const statusColumnNames: Record<string, Set<string>> = {
+  github_in_progress_columns: new Set([
+    "in progress",
+    "work in progress",
+    "doing",
+    "wip",
+  ]),
+  github_in_review_columns: new Set([
+    "in review",
+    "review",
+    "code review",
+    "ready for review",
+  ]),
+  github_done_columns: new Set([
+    "done",
+    "complete",
+    "completed",
+    "finished",
+  ]),
+};
+
+const suggestedStatusValues = (
+  requirement: Requirement,
+  options: ResourceOption[],
+) => {
+  const names = statusColumnNames[requirement.id];
+  if (!names || requirement.cardinality !== "many") return [];
+  return options
+    .filter((option) => {
+      const value = option.value as Record<string, unknown> | undefined;
+      return names.has(
+        normalizedStatus(String(value?.name || option.label)),
+      );
+    })
+    .map(({ value }) => value);
+};
+
 export function JoinWizard({
   initial,
   governifyUrl,
@@ -430,6 +475,14 @@ export function JoinWizard({
         );
         if (!cancelled) {
           setOptions((current) => ({ ...current, [requirement.id]: values }));
+          const suggested = suggestedStatusValues(requirement, values);
+          if (suggested.length) {
+            setAnswers((current) =>
+              current[requirement.id] === undefined
+                ? { ...current, [requirement.id]: suggested }
+                : current,
+            );
+          }
         }
       } catch (cause) {
         if (!cancelled) {
