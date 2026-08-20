@@ -1,7 +1,7 @@
 export const env = {
   AUTHENTICATOR_SERVICE_URL:
     process.env.AUTHENTICATOR_SERVICE_URL || "http://localhost:5900",
-  JOIN_BACKEND_URL: process.env.JOIN_BACKEND_URL || "http://localhost:5807",
+  JOIN_BACKEND_URL: process.env.JOIN_BACKEND_URL || "http://localhost:5907",
   ACCESS_COOKIE:
     process.env.AUTH_ACCESS_COOKIE_NAME || "governify_next_access_token",
   REFRESH_COOKIE:

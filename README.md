@@ -15,4 +15,4 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+The standalone join-backend default is `http://localhost:5907`. Open the frontend at `http://localhost:3000`.
