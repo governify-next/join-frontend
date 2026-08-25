@@ -1,6 +1,4 @@
 import { JoinWizard } from "./wizard";
-import type { Onboarding } from "./types";
-import { joinApi } from "@/lib/join-api";
 import Link from "next/link";
 
 type HomeSearchParams = {
@@ -16,19 +14,7 @@ export default async function Home({
   searchParams: Promise<HomeSearchParams>;
 }) {
   const { onboarding: id, status, message } = await searchParams;
-  let initial: Onboarding | undefined;
   let loadError = "";
-
-  if (id) {
-    try {
-      initial = await joinApi<Onboarding>(
-        `/onboardings/${encodeURIComponent(id)}`,
-      );
-    } catch (error) {
-      loadError =
-        error instanceof Error ? error.message : "Unable to restore onboarding";
-    }
-  }
 
   if (status === "error") {
     loadError = message || "Integration authorization was not completed.";
@@ -60,7 +46,7 @@ export default async function Home({
           </div>
         ) : (
           <JoinWizard
-            initial={initial}
+            initialId={id}
             governifyUrl={
               process.env.GOVERNIFY_FRONTEND_URL || "https://next.governify.io"
             }

@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { joinApi as api } from "@/lib/join-api";
 import { RequirementField, type ResourceAction } from "./requirement-field";
 import type {
   IntegrationProvider,
@@ -44,19 +45,6 @@ type WizardStep =
     }
   | { id: "review"; label: string; kind: "review" }
   | { id: "provision"; label: string; kind: "provision" };
-
-const api = async <T,>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(`/api/join${path}`, {
-    ...init,
-    headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...init?.headers,
-    },
-  });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(body?.message || "Request failed");
-  return body.data as T;
-};
 
 const localDate = (date: Date) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
@@ -321,7 +309,7 @@ const suggestedResourceValues = (
   requirement: Requirement,
   options: ResourceOption[],
 ) => {
-    if (requirement.id === "github_users") {
+  if (requirement.id === "github_users") {
     return options.map(({ value }) => value);
   }
   const names = statusColumnNames[requirement.id];
@@ -337,28 +325,22 @@ const suggestedResourceValues = (
 };
 
 export function JoinWizard({
-  initial,
+  initialId,
   governifyUrl,
 }: {
-  initial?: Onboarding;
+  initialId?: string;
   governifyUrl: string;
 }) {
-  const initialAnswers = defaultAnswers(
-    initial?.onboardingDefinition,
-    initial?.answers,
-  );
-  const initialSteps = buildSteps(initial?.onboardingDefinition);
-  const [onboarding, setOnboarding] = useState(initial);
-  const [answers, setAnswers] = useState<Answers>(initialAnswers);
+  const [onboarding, setOnboarding] = useState<Onboarding>();
+  const [answers, setAnswers] = useState<Answers>({});
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [templateId, setTemplateId] = useState("");
-  const [templatesLoading, setTemplatesLoading] = useState(!initial);
-  const [step, setStep] = useState(() =>
-    initialStep(initial, initialAnswers, initialSteps),
-  );
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [restoring, setRestoring] = useState(Boolean(initialId));
+  const [step, setStep] = useState(0);
   const [integrationSubsteps, setIntegrationSubsteps] = useState<
     Record<string, number>
-  >(() => initialIntegrationSubsteps(initial, initialAnswers, initialSteps));
+  >({});
   const [options, setOptions] = useState<Record<string, ResourceOption[]>>({});
   const [optionLoading, setOptionLoading] = useState<Record<string, boolean>>({});
   const [optionRefresh, setOptionRefresh] = useState(0);
@@ -393,7 +375,42 @@ export function JoinWizard({
   };
 
   useEffect(() => {
-    if (onboarding) return;
+    if (!initialId) return;
+    let cancelled = false;
+    api<Onboarding>(`/onboardings/${encodeURIComponent(initialId)}`)
+      .then((value) => {
+        if (cancelled) return;
+        const nextAnswers = defaultAnswers(
+          value.onboardingDefinition,
+          value.answers,
+        );
+        const nextSteps = buildSteps(value.onboardingDefinition);
+        setOnboarding(value);
+        setAnswers(nextAnswers);
+        setStep(initialStep(value, nextAnswers, nextSteps));
+        setIntegrationSubsteps(
+          initialIntegrationSubsteps(value, nextAnswers, nextSteps),
+        );
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Unable to restore onboarding",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRestoring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialId]);
+
+  useEffect(() => {
+    if (onboarding || restoring) return;
     let cancelled = false;
     api<TemplateOption[]>("/agreement-templates")
       .then((values) => {
@@ -416,7 +433,7 @@ export function JoinWizard({
     return () => {
       cancelled = true;
     };
-  }, [onboarding]);
+  }, [onboarding, restoring]);
 
   const refresh = useCallback(async () => {
     if (!onboardingId) return;
@@ -612,11 +629,11 @@ export function JoinWizard({
       for (const id of cleared) delete next[id];
       if (
         requirementId === "github_repository" &&
-        !next.scope_element_name &&
+        !next.scope_name &&
         value &&
         typeof value === "object"
       ) {
-        next.scope_element_name = slug(
+        next.scope_name = slug(
           String((value as Record<string, unknown>).name || ""),
         );
       }
@@ -722,6 +739,7 @@ export function JoinWizard({
     });
 
   const completed = onboarding?.status === "COMPLETED";
+  const organizationName = displayValue(answers.scope_organization);
   const totalCheckpoints = Number(onboarding?.result?.totalCheckpoints || 9);
   const progress = Math.round(
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
@@ -774,7 +792,7 @@ export function JoinWizard({
         {activeStep?.kind === "agreement" && (
           <>
             <div>
-              <div className="eyebrow">Mock Registry catalog</div>
+              <div className="eyebrow">Registry catalog</div>
               <h2>Choose an agreement</h2>
               <p>
                 Each agreement brings its own onboarding definition, required integrations and
@@ -787,7 +805,7 @@ export function JoinWizard({
                 <span>{onboarding.agreementTemplate.description}</span>
               </div>
             ) : templatesLoading ? (
-              <Loading text="Loading mocked agreements…" />
+              <Loading text="Loading public agreements…" />
             ) : templates.length ? (
               <div className="option-grid">
                 {templates.map((option) => {
@@ -812,7 +830,7 @@ export function JoinWizard({
                 })}
               </div>
             ) : (
-              <Empty text="No mocked agreement templates are configured." />
+              <Empty text="No supported public Agreement Templates are available in Registry." />
             )}
             {selectedTemplate && (
               <div className="notice">
@@ -971,7 +989,7 @@ export function JoinWizard({
               <div className="actions">
                 <a
                   className="button"
-                  href={`${governifyUrl}/organizations/${encodeURIComponent(String(onboarding?.result?.organizationName || ""))}`}
+                  href={`${governifyUrl}/organizations/${encodeURIComponent(organizationName)}`}
                 >
                   Open organization
                 </a>

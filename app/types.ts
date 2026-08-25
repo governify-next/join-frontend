@@ -45,7 +45,7 @@ export type Requirement = {
 export type OnboardingDefinition = {
   schemaVersion: "1.0";
   id: string;
-  agreementTemplateId: string;
+  agreementTemplateName: string;
   modules: OnboardingModule[];
   requirements: Requirement[];
 };
