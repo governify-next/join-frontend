@@ -11,6 +11,7 @@ import { joinApi as api } from "@/lib/join-api";
 import { RequirementField, type ResourceAction } from "./requirement-field";
 import type {
   IntegrationProvider,
+  JoinLink,
   Onboarding,
   OnboardingDefinition,
   OnboardingModule,
@@ -20,6 +21,12 @@ import type {
 } from "./types";
 
 type Answers = Record<string, unknown>;
+type MemberDetail = {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
 type RequirementGroup = {
   id: string;
   title: string;
@@ -136,8 +143,41 @@ const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
   ];
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const memberUsername = (value: unknown) =>
+  isRecord(value) && typeof value.username === "string" ? value.username : "";
+
+const memberDetails = (value: unknown): MemberDetail[] =>
+  Array.isArray(value)
+    ? value.filter(isRecord).map((item) => ({
+        username: typeof item.username === "string" ? item.username : "",
+        firstName: typeof item.firstName === "string" ? item.firstName : "",
+        lastName: typeof item.lastName === "string" ? item.lastName : "",
+        email: typeof item.email === "string" ? item.email : "",
+      }))
+    : [];
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const completeMemberDetail = (value: MemberDetail) =>
+  Boolean(
+    value.username &&
+      value.firstName.trim() &&
+      value.lastName.trim() &&
+      emailPattern.test(value.email.trim()),
+  );
+
 const complete = (requirement: Requirement, value: unknown) => {
   if (!requirement.required && (value === undefined || value === "")) return true;
+  if (requirement.type === "member-details") {
+    const details = memberDetails(value);
+    return (
+      details.length >= (requirement.validation?.minItems || 1) &&
+      details.every(completeMemberDetail)
+    );
+  }
   if (requirement.cardinality === "many") {
     return (
       Array.isArray(value) &&
@@ -256,6 +296,12 @@ const displayValue = (value: unknown): string => {
   if (Array.isArray(value)) return value.map(displayValue).join(", ");
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
+    if (record.firstName || record.lastName || record.email) {
+      const name = `${String(record.firstName || "")} ${String(record.lastName || "")}`.trim();
+      const email = String(record.email || "");
+      const username = String(record.username || "");
+      return [name, email, username ? `@${username}` : ""].filter(Boolean).join(" · ");
+    }
     return String(
       record.fullName ||
         record.title ||
@@ -326,12 +372,19 @@ const suggestedResourceValues = (
 
 export function JoinWizard({
   initialId,
+  initialJoinLinkId,
   governifyUrl,
 }: {
   initialId?: string;
+  initialJoinLinkId?: string;
   governifyUrl: string;
 }) {
   const [onboarding, setOnboarding] = useState<Onboarding>();
+  const [joinLink, setJoinLink] = useState<JoinLink>();
+  const [joinLinkLoading, setJoinLinkLoading] = useState(
+    Boolean(initialJoinLinkId && !initialId),
+  );
+  const [joinLinkUnavailable, setJoinLinkUnavailable] = useState(false);
   const [answers, setAnswers] = useState<Answers>({});
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [templateId, setTemplateId] = useState("");
@@ -350,6 +403,8 @@ export function JoinWizard({
   const [error, setError] = useState("");
 
   const definition = onboarding?.onboardingDefinition;
+  const joinLinkConfiguration =
+    onboarding?.joinLinkConfiguration || joinLink?.configuration;
   const steps = useMemo(() => buildSteps(definition), [definition]);
   const activeStep = steps[step];
   const activeIntegrationSubstep =
@@ -360,7 +415,27 @@ export function JoinWizard({
   const selectedTemplate = templates.find(
     ({ agreementTemplate }) => agreementTemplate._id === templateId,
   );
+  const agreementTemplateLocked = Boolean(
+    joinLinkConfiguration && !joinLinkConfiguration.agreementTemplate.editable,
+  );
   const onboardingId = onboarding?._id;
+
+  const requirementLocked = (requirementId: string) => {
+    if (!joinLinkConfiguration) return false;
+    if (requirementId === "scope_organization")
+      return !joinLinkConfiguration.organization.editable;
+    if (requirementId === "scope_name")
+      return !joinLinkConfiguration.scopeName.editable;
+    if (
+      [
+        "agreement_validity_start",
+        "agreement_validity_end",
+        "agreement_timezone",
+      ].includes(requirementId)
+    )
+      return !joinLinkConfiguration.agreementValidity.editable;
+    return false;
+  };
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -373,6 +448,30 @@ export function JoinWizard({
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!initialJoinLinkId || initialId) return;
+    let cancelled = false;
+    api<JoinLink>(`/join-links/${encodeURIComponent(initialJoinLinkId)}`)
+      .then((value) => {
+        if (cancelled) return;
+        setJoinLink(value);
+        setTemplateId(value.configuration.agreementTemplate.value._id);
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setJoinLinkUnavailable(true);
+        setError(
+          cause instanceof Error ? cause.message : "Unable to load the join link",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setJoinLinkLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialId, initialJoinLinkId]);
 
   useEffect(() => {
     if (!initialId) return;
@@ -571,7 +670,10 @@ export function JoinWizard({
       if (!templateId) throw new Error("Select an agreement template.");
       const value = await api<Onboarding>("/onboardings", {
         method: "POST",
-        body: JSON.stringify({ agreementTemplateId: templateId }),
+        body: JSON.stringify({
+          agreementTemplateId: templateId,
+          joinLinkId: initialJoinLinkId,
+        }),
       });
       const nextAnswers = defaultAnswers(value.onboardingDefinition, value.answers);
       const nextSteps = buildSteps(value.onboardingDefinition);
@@ -614,6 +716,7 @@ export function JoinWizard({
 
   const updateAnswer = (requirementId: string, value: unknown) => {
     if (!definition) return;
+    if (requirementLocked(requirementId)) return;
     const cleared = new Set<string>();
     const collectDependents = (id: string) => {
       for (const requirement of definition.requirements) {
@@ -692,6 +795,17 @@ export function JoinWizard({
       (requirement) => !complete(requirement, answers[requirement.id]),
     );
     if (missing) {
+      if (missing.type === "member-details") {
+        const incomplete = memberDetails(answers[missing.id]).find(
+          (detail) => !completeMemberDetail(detail),
+        );
+        setError(
+          incomplete?.username
+            ? `Complete First Name, Last Name and E-mail address for @${incomplete.username} before continuing.`
+            : "Complete First Name, Last Name and E-mail address for every selected member before continuing.",
+        );
+        return;
+      }
       setError(`Complete '${missing.ui.label}' before continuing.`);
       return;
     }
@@ -745,28 +859,57 @@ export function JoinWizard({
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
   );
   const renderRequirementFields = (requirements: Requirement[]) =>
-    requirements.map((requirement) => (
-      <RequirementField
-        key={requirement.id}
-        requirement={requirement}
-        value={answers[requirement.id]}
-        options={options[requirement.id] || []}
-        loading={Boolean(optionLoading[requirement.id])}
-        dependenciesReady={(requirement.dependsOn || []).every(
-          (dependency) => answers[dependency] !== undefined,
-        )}
-        search={searches[requirement.id] || ""}
-        resourceActions={
-          requirement.id === "github_repository"
-            ? githubRepositoryActions
-            : undefined
-        }
-        onSearch={(value) =>
-          setSearches((current) => ({ ...current, [requirement.id]: value }))
-        }
-        onChange={(value) => updateAnswer(requirement.id, value)}
-      />
-    ));
+    requirements.map((requirement) =>
+      requirement.type === "member-details" ? (
+        <MemberDetailsField
+          key={requirement.id}
+          requirement={requirement}
+          members={answers[requirement.dependsOn?.[0] || ""]}
+          value={answers[requirement.id]}
+          onChange={(value) => updateAnswer(requirement.id, value)}
+        />
+      ) : (
+        <RequirementField
+          key={requirement.id}
+          requirement={requirement}
+          value={answers[requirement.id]}
+          options={options[requirement.id] || []}
+          loading={Boolean(optionLoading[requirement.id])}
+          dependenciesReady={(requirement.dependsOn || []).every(
+            (dependency) => answers[dependency] !== undefined,
+          )}
+          search={searches[requirement.id] || ""}
+          resourceActions={
+            requirement.id === "github_repository"
+              ? githubRepositoryActions
+              : undefined
+          }
+          locked={requirementLocked(requirement.id)}
+          onSearch={(value) =>
+            setSearches((current) => ({ ...current, [requirement.id]: value }))
+          }
+          onChange={(value) => updateAnswer(requirement.id, value)}
+        />
+      ),
+    );
+
+  if (joinLinkLoading) {
+    return (
+      <div className="card stack">
+        <Loading text="Loading join link configuration…" />
+      </div>
+    );
+  }
+
+  if (joinLinkUnavailable) {
+    return (
+      <div className="card stack">
+        <div className="notice error" role="alert">
+          {error || "This join link is unavailable."}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="wizard">
@@ -793,16 +936,25 @@ export function JoinWizard({
           <>
             <div>
               <div className="eyebrow">Registry catalog</div>
-              <h2>Choose an agreement</h2>
+              <h2>{agreementTemplateLocked ? "Agreement" : "Choose an agreement"}</h2>
               <p>
-                Each agreement brings its own onboarding definition, required integrations and
-                data mappings.
+                {agreementTemplateLocked
+                  ? "This agreement template was predefined by the organization administrator."
+                  : "Each agreement brings its own onboarding definition, required integrations and data mappings."}
               </p>
             </div>
             {onboarding ? (
               <div className="option selected">
                 <strong>{onboarding.agreementTemplate.displayName}</strong>
                 <span>{onboarding.agreementTemplate.description}</span>
+              </div>
+            ) : agreementTemplateLocked && joinLinkConfiguration ? (
+              <div className="option selected locked-option">
+                <strong>
+                  {joinLinkConfiguration.agreementTemplate.value.displayName}
+                </strong>
+                <span>{joinLinkConfiguration.agreementTemplate.value.description}</span>
+                <span>Set by the join link</span>
               </div>
             ) : templatesLoading ? (
               <Loading text="Loading public agreements…" />
@@ -836,6 +988,12 @@ export function JoinWizard({
               <div className="notice">
                 The wizard will request {selectedTemplate.onboardingDefinition.requirements.length}
                 {" "}data fields across this onboarding.
+              </div>
+            )}
+            {joinLinkConfiguration && (
+              <div className="notice">
+                Predefined onboarding values have been supplied by the organization. Fields marked
+                as set by the join link cannot be changed.
               </div>
             )}
             <div className="actions">
@@ -1103,6 +1261,93 @@ function IntegrationStep({
         </button>
       </div>
     </>
+  );
+}
+
+function MemberDetailsField({
+  requirement,
+  members,
+  value,
+  onChange,
+}: {
+  requirement: Requirement;
+  members: unknown;
+  value: unknown;
+  onChange: (value: MemberDetail[]) => void;
+}) {
+  const selectedMembers = Array.isArray(members)
+    ? members.map(memberUsername).filter(Boolean)
+    : [];
+  const detailsByUsername = new Map(
+    memberDetails(value).map((detail) => [detail.username, detail]),
+  );
+  const update = (
+    username: string,
+    field: "firstName" | "lastName" | "email",
+    nextValue: string,
+  ) => {
+    onChange(
+      selectedMembers.map((selectedUsername) => ({
+        username: selectedUsername,
+        firstName: detailsByUsername.get(selectedUsername)?.firstName || "",
+        lastName: detailsByUsername.get(selectedUsername)?.lastName || "",
+        email: detailsByUsername.get(selectedUsername)?.email || "",
+        ...(selectedUsername === username ? { [field]: nextValue } : {}),
+      })),
+    );
+  };
+
+  return (
+    <div className="field">
+      <span className="label">{requirement.ui.label}</span>
+      {requirement.ui.help && <span className="muted">{requirement.ui.help}</span>}
+      <div className="member-details-list">
+        {selectedMembers.map((username, index) => {
+          const detail = detailsByUsername.get(username);
+          const idPrefix = `${requirement.id}-${index}`;
+          return (
+            <fieldset className="member-details-card" key={username}>
+              <legend>@{username}</legend>
+              <div className="member-details-grid">
+                <div className="field">
+                  <label htmlFor={`${idPrefix}-first-name`}>First Name</label>
+                  <input
+                    id={`${idPrefix}-first-name`}
+                    className="input"
+                    type="text"
+                    value={detail?.firstName || ""}
+                    onChange={(event) => update(username, "firstName", event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={`${idPrefix}-last-name`}>Last Name</label>
+                  <input
+                    id={`${idPrefix}-last-name`}
+                    className="input"
+                    type="text"
+                    value={detail?.lastName || ""}
+                    onChange={(event) => update(username, "lastName", event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={`${idPrefix}-email`}>E-mail address</label>
+                  <input
+                    id={`${idPrefix}-email`}
+                    className="input"
+                    type="email"
+                    value={detail?.email || ""}
+                    onChange={(event) => update(username, "email", event.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </fieldset>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

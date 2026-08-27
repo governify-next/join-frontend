@@ -1,6 +1,18 @@
 import type { Requirement, ResourceOption } from "./types";
 
 const serialized = (value: unknown) => JSON.stringify(value);
+const resourceIdentity = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return serialized(value);
+  const record = value as Record<string, unknown>;
+  if (record.installationId !== undefined && record.id !== undefined)
+    return `${String(record.installationId)}:${String(record.id)}`;
+  return String(
+    record._id ?? record.id ?? record.username ?? record.name ?? serialized(value),
+  );
+};
+
+const sameResource = (left: unknown, right: unknown) =>
+  resourceIdentity(left) === resourceIdentity(right);
 
 export type ResourceAction = {
   label: string;
@@ -16,6 +28,7 @@ export function RequirementField({
   dependenciesReady,
   search,
   resourceActions = [],
+  locked = false,
   onSearch,
   onChange,
 }: {
@@ -26,6 +39,7 @@ export function RequirementField({
   dependenciesReady: boolean;
   search: string;
   resourceActions?: ResourceAction[];
+  locked?: boolean;
   onSearch: (value: string) => void;
   onChange: (value: unknown) => void;
 }) {
@@ -41,11 +55,13 @@ export function RequirementField({
           minLength={requirement.validation?.minLength}
           maxLength={requirement.validation?.maxLength}
           pattern={requirement.validation?.pattern}
+          disabled={locked}
           onChange={(event) => onChange(event.target.value)}
         />
         {requirement.ui.help && (
           <span className="muted">{requirement.ui.help}</span>
         )}
+        {locked && <span className="muted">Set by the join link.</span>}
       </div>
     );
   }
@@ -67,6 +83,13 @@ export function RequirementField({
   const selected = requirement.cardinality === "many" && Array.isArray(value)
     ? value
     : [];
+  const visibleOptions = locked
+    ? filtered.filter((option) =>
+        requirement.cardinality === "many"
+          ? selected.some((item) => sameResource(item, option.value))
+          : sameResource(value, option.value),
+      )
+    : filtered;
 
   return (
     <div className="field">
@@ -81,6 +104,7 @@ export function RequirementField({
           aria-label={`Search ${requirement.ui.label}`}
           placeholder="Search available values"
           value={search}
+          disabled={locked}
           onChange={(event) => onSearch(event.target.value)}
         />
       )}
@@ -88,17 +112,18 @@ export function RequirementField({
         <div className="row muted">
           <span className="spinner" /> Loading available values…
         </div>
-      ) : filtered.length ? (
+      ) : visibleOptions.length ? (
         <div className="option-grid">
-          {filtered.map((option) => {
+          {visibleOptions.map((option) => {
             const isSelected = requirement.cardinality === "many"
-              ? selected.some((item) => serialized(item) === serialized(option.value))
-              : serialized(value) === serialized(option.value);
+              ? selected.some((item) => sameResource(item, option.value))
+              : sameResource(value, option.value);
             return (
               <button
                 type="button"
                 className={`option ${isSelected ? "selected" : ""}`}
                 key={option.id}
+                disabled={locked}
                 onClick={() => {
                   if (requirement.cardinality !== "many") {
                     onChange(option.value);
@@ -107,7 +132,7 @@ export function RequirementField({
                   onChange(
                     isSelected
                       ? selected.filter(
-                          (item) => serialized(item) !== serialized(option.value),
+                          (item) => !sameResource(item, option.value),
                         )
                       : [...selected, option.value],
                   );
@@ -149,6 +174,7 @@ export function RequirementField({
           )}
         </div>
       )}
+      {locked && <span className="muted">Set by the join link.</span>}
     </div>
   );
 }

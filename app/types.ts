@@ -20,7 +20,7 @@ export type OnboardingModule = {
 export type Requirement = {
   id: string;
   module: ModuleId;
-  type: "text" | "datetime" | "timezone" | "resource";
+  type: "text" | "datetime" | "timezone" | "resource" | "member-details";
   cardinality?: "one" | "many";
   required: boolean;
   dependsOn?: string[];
@@ -55,6 +55,35 @@ export type TemplateOption = {
   onboardingDefinition: OnboardingDefinition;
 };
 
+export type JoinLinkField<T> = {
+  value: T;
+  editable: boolean;
+};
+
+export type JoinLinkOrganization = {
+  _id: string;
+  name: string;
+  displayName?: string;
+};
+
+export type JoinLinkConfiguration = {
+  organization: JoinLinkField<JoinLinkOrganization>;
+  agreementTemplate: JoinLinkField<AgreementTemplate>;
+  agreementValidity: JoinLinkField<{
+    initial: string;
+    end: string;
+    timezone: string;
+  }>;
+  scopeName: JoinLinkField<string>;
+};
+
+export type JoinLink = {
+  _id: string;
+  configuration: JoinLinkConfiguration;
+  createdByUsername: string;
+  createdAt: string;
+};
+
 export type ResourceOption = {
   id: string;
   label: string;
@@ -71,6 +100,8 @@ export type GitHubInstallation = {
 
 export type Onboarding = {
   _id: string;
+  joinLinkId?: string;
+  joinLinkConfiguration?: JoinLinkConfiguration;
   status:
     | "DRAFT"
     | "AUTHORIZING"

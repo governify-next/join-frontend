@@ -3,6 +3,7 @@ import Link from "next/link";
 
 type HomeSearchParams = {
   onboarding?: string;
+  joinLink?: string;
   integration?: string;
   status?: string;
   message?: string;
@@ -13,7 +14,7 @@ export default async function Home({
 }: {
   searchParams: Promise<HomeSearchParams>;
 }) {
-  const { onboarding: id, status, message } = await searchParams;
+  const { onboarding: id, joinLink, status, message } = await searchParams;
   let loadError = "";
 
   if (status === "error") {
@@ -26,7 +27,9 @@ export default async function Home({
         <div className="brand">
           <span className="brand-mark">G</span> Governify Join
         </div>
-        <span className="muted">Project onboarding</span>
+        <Link className="topbar-link" href="/join-links">
+          Manage join links
+        </Link>
       </header>
       <main className="page">
         <div className="hero">
@@ -47,6 +50,7 @@ export default async function Home({
         ) : (
           <JoinWizard
             initialId={id}
+            initialJoinLinkId={joinLink}
             governifyUrl={
               process.env.GOVERNIFY_FRONTEND_URL || "https://next.governify.io"
             }
