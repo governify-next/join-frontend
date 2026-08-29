@@ -20,6 +20,7 @@ export default async function Home({
   if (status === "error") {
     loadError = message || "Integration authorization was not completed.";
   }
+  const missingJoinLink = !id && !joinLink;
 
   return (
     <div className="shell">
@@ -46,6 +47,16 @@ export default async function Home({
             <Link className="button" href="/">
               Start a new onboarding
             </Link>
+          </div>
+        ) : missingJoinLink ? (
+          <div className="card stack">
+            <div>
+              <h2>Join link required</h2>
+              <p>
+                New onboardings can only be started from a join link provided by
+                an organization administrator.
+              </p>
+            </div>
           </div>
         ) : (
           <JoinWizard
