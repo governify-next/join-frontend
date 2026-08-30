@@ -98,6 +98,10 @@ export type GitHubInstallation = {
   htmlUrl: string;
 };
 
+export type DashboardResult = {
+  grafanaUrl: string;
+};
+
 export type Onboarding = {
   _id: string;
   joinLinkId?: string;
@@ -124,6 +128,8 @@ export type Onboarding = {
   };
   answers?: Record<string, unknown>;
   checkpoints: string[];
-  result?: Record<string, unknown>;
+  result?: Record<string, unknown> & {
+    dashboard?: DashboardResult;
+  };
   failure?: { step: string; message: string; retryable: boolean };
 };

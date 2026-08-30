@@ -854,6 +854,7 @@ export function JoinWizard({
 
   const completed = onboarding?.status === "COMPLETED";
   const organizationName = displayValue(answers.scope_organization);
+  const dashboardUrl = onboarding?.result?.dashboard?.grafanaUrl;
   const totalCheckpoints = Number(onboarding?.result?.totalCheckpoints || 9);
   const progress = Math.round(
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
@@ -1151,6 +1152,11 @@ export function JoinWizard({
                 >
                   Open organization
                 </a>
+                {dashboardUrl && (
+                  <a className="button secondary" href={dashboardUrl}>
+                    Open dashboard
+                  </a>
+                )}
               </div>
             )}
           </>
