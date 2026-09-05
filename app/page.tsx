@@ -1,5 +1,21 @@
-import { JoinWizard } from "./wizard";
+import { ArrowRight, CircleAlert, Settings2 } from "lucide-react";
 import Link from "next/link";
+
+import { AppShell } from "@/components/app-shell";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { JoinWizard } from "./wizard";
 
 type HomeSearchParams = {
   onboarding?: string;
@@ -23,51 +39,59 @@ export default async function Home({
   const missingJoinLink = !id && !joinLink;
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">G</span> Governify Join
-        </div>
-        <Link className="topbar-link" href="/join-links">
-          Manage join links
-        </Link>
-      </header>
-      <main className="page">
-        <div className="hero">
-          <div className="eyebrow">Governify ecosystem</div>
-          <h1>Bring your project into Governify.</h1>
-          <p>
-            Choose an agreement template, connect only the services it needs,
-            and complete the guided setup.
-          </p>
-        </div>
-        {loadError ? (
-          <div className="card stack">
-            <div className="notice error">{loadError}</div>
-            <Link className="button" href="/">
-              Start a new onboarding
-            </Link>
-          </div>
-        ) : missingJoinLink ? (
-          <div className="card stack">
-            <div>
-              <h2>Join link required</h2>
-              <p>
-                New onboardings can only be started from a join link provided by
-                an organization administrator.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <JoinWizard
-            initialId={id}
-            initialJoinLinkId={joinLink}
-            governifyUrl={
-              process.env.GOVERNIFY_FRONTEND_URL || "https://next.governify.io"
-            }
-          />
-        )}
-      </main>
-    </div>
+    <AppShell
+      eyebrow="Governify ecosystem"
+      title="Bring your project into Governify."
+      description={
+        <p>
+          Choose a Governify destination and agreement template, connect only
+          the services it needs, and complete the guided setup.
+        </p>
+      }
+      action={
+        <Button variant="ghost" asChild>
+          <Link href="/join-links">
+            <Settings2 aria-hidden="true" />
+            Manage join links
+          </Link>
+        </Button>
+      }
+    >
+      {loadError ? (
+        <Card>
+          <CardContent className="flex flex-col items-start gap-4">
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>Unable to continue onboarding</AlertTitle>
+              <AlertDescription>{loadError}</AlertDescription>
+            </Alert>
+            <Button asChild>
+              <Link href="/">
+                Start a new onboarding
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : missingJoinLink ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Join link required</CardTitle>
+            <CardDescription>
+              New onboardings can only be started from a join link provided by
+              an organization administrator.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <JoinWizard
+          initialId={id}
+          initialJoinLinkId={joinLink}
+          governifyUrl={
+            process.env.GOVERNIFY_FRONTEND_URL || "https://next.governify.io"
+          }
+        />
+      )}
+    </AppShell>
   );
 }
