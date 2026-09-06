@@ -418,11 +418,9 @@ const suggestedResourceValues = (
 export function JoinWizard({
   initialId,
   initialJoinLinkId,
-  governifyUrl,
 }: {
   initialId?: string;
   initialJoinLinkId?: string;
-  governifyUrl: string;
 }) {
   const [onboarding, setOnboarding] = useState<Onboarding>();
   const [joinLink, setJoinLink] = useState<JoinLink>();
@@ -963,8 +961,9 @@ export function JoinWizard({
     });
 
   const completed = onboarding?.status === "COMPLETED";
-  const organizationName = displayValue(answers.scope_organization);
-  const dashboardUrl = onboarding?.result?.dashboard?.grafanaUrl;
+  const dashboardURL = onboarding?.result?.dashboardURL;
+  const organizationURL = onboarding?.result?.organizationURL;
+  const scopeAndAgreement = onboarding?.result?.scopeAndAgreement;
   const totalCheckpoints = Number(onboarding?.result?.totalCheckpoints || 9);
   const progress = Math.round(
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
@@ -1282,24 +1281,23 @@ export function JoinWizard({
                 </button>
               </div>
             )}
-            {completed && onboarding?.result?.materialized && (
+            {completed && scopeAndAgreement && (
               <details className="notice">
-                <summary>Inspect materialized Agreement and Scope</summary>
+                <summary>Inspect Scope and Agreement data</summary>
                 <pre style={{ overflow: "auto", whiteSpace: "pre-wrap" }}>
-                  {JSON.stringify(onboarding.result.materialized, null, 2)}
+                  {JSON.stringify(scopeAndAgreement, null, 2)}
                 </pre>
               </details>
             )}
-            {completed && (
+            {completed && (organizationURL || dashboardURL) && (
               <div className="actions">
-                <a
-                  className="button"
-                  href={`${governifyUrl}/organizations/${encodeURIComponent(organizationName)}`}
-                >
-                  Open organization
-                </a>
-                {dashboardUrl && (
-                  <a className="button secondary" href={dashboardUrl}>
+                {organizationURL && (
+                  <a className="button" href={organizationURL}>
+                    Open organization
+                  </a>
+                )}
+                {dashboardURL && (
+                  <a className="button secondary" href={dashboardURL}>
                     Open dashboard
                   </a>
                 )}

@@ -10,12 +10,17 @@ import {
 import { joinApi } from "@/lib/join-api";
 import type {
   JoinLink,
-  JoinLinkConfiguration,
   JoinLinkOrganization,
+  JoinLinkResultOptions,
   TemplateOption,
 } from "../types";
 
-type EditableConfiguration = Record<keyof JoinLinkConfiguration, boolean>;
+type EditableField =
+  | "organization"
+  | "agreementTemplate"
+  | "agreementValidity"
+  | "scopeName";
+type EditableConfiguration = Record<EditableField, boolean>;
 
 const initialEditable: EditableConfiguration = {
   organization: false,
@@ -24,16 +29,28 @@ const initialEditable: EditableConfiguration = {
   scopeName: false,
 };
 
+const initialResultOptions: JoinLinkResultOptions = {
+  dashboardURL: true,
+  organizationURL: true,
+  scopeAndAgreement: true,
+};
+
 const localDateTime = (date: Date) => {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 };
 
-const linkFieldLabels: Record<keyof JoinLinkConfiguration, string> = {
+const linkFieldLabels: Record<EditableField, string> = {
   organization: "Organization",
   agreementTemplate: "Agreement template",
   agreementValidity: "Agreement validity",
   scopeName: "Scope and agreement name",
+};
+
+const resultOptionLabels: Record<keyof JoinLinkResultOptions, string> = {
+  dashboardURL: "Dashboard button",
+  organizationURL: "Organization button",
+  scopeAndAgreement: "Scope and Agreement data",
 };
 
 const errorMessage = (cause: unknown, fallback: string) =>
@@ -59,6 +76,9 @@ export function JoinLinkManager() {
   const [timezone, setTimezone] = useState("");
   const [editable, setEditable] =
     useState<EditableConfiguration>(initialEditable);
+  const [resultOptions, setResultOptions] = useState<JoinLinkResultOptions>(
+    initialResultOptions,
+  );
   const [loading, setLoading] = useState(true);
   const [linksLoading, setLinksLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -174,6 +194,7 @@ export function JoinLinkManager() {
             scopeName: scopeNameFromRepository ? undefined : scopeName,
             scopeNameFromRepository,
             editable,
+            resultOptions,
           }),
         },
       );
@@ -394,6 +415,33 @@ export function JoinLinkManager() {
           )}
         </ConfiguredField>
 
+        <fieldset className="configured-field">
+          <legend>Result options</legend>
+          <div className="configured-field-content">
+            <span className="muted text-sm">
+              Only selected result data will be sent to participants after
+              onboarding.
+            </span>
+            {(Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]).map(
+              (option) => (
+                <label className="toggle" key={option}>
+                  <input
+                    type="checkbox"
+                    checked={resultOptions[option]}
+                    onChange={(event) =>
+                      setResultOptions((current) => ({
+                        ...current,
+                        [option]: event.target.checked,
+                      }))
+                    }
+                  />
+                  {resultOptionLabels[option]}
+                </label>
+              ),
+            )}
+          </div>
+        </fieldset>
+
         <div className="actions">
           <button className="button" type="submit" disabled={saving}>
             {saving ? "Generating…" : "Generate join link"}
@@ -440,7 +488,7 @@ export function JoinLinkManager() {
                   {(
                     Object.keys(
                       linkFieldLabels,
-                    ) as (keyof JoinLinkConfiguration)[]
+                    ) as EditableField[]
                   ).map((field) => (
                     <span
                       className={`badge ${link.configuration[field].editable ? "editable" : ""}`}
@@ -457,6 +505,17 @@ export function JoinLinkManager() {
                           : "locked"}
                     </span>
                   ))}
+                  {(
+                    Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]
+                  ).map((option) => {
+                    const enabled =
+                      link.configuration.resultOptions?.[option] ?? true;
+                    return (
+                      <span className="badge" key={option}>
+                        {resultOptionLabels[option]}: {enabled ? "shown" : "hidden"}
+                      </span>
+                    );
+                  })}
                 </div>
               </article>
             ))}

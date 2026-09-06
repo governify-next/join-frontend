@@ -84,13 +84,7 @@ export default async function Home({
           </CardHeader>
         </Card>
       ) : (
-        <JoinWizard
-          initialId={id}
-          initialJoinLinkId={joinLink}
-          governifyUrl={
-            process.env.GOVERNIFY_FRONTEND_URL || "https://next.governify.io"
-          }
-        />
+        <JoinWizard initialId={id} initialJoinLinkId={joinLink} />
       )}
     </AppShell>
   );
