@@ -12,6 +12,7 @@ import { RequirementField, type ResourceAction } from "./requirement-field";
 import type {
   IntegrationProvider,
   JoinLink,
+  JoinLinkConfiguration,
   Onboarding,
   OnboardingDefinition,
   OnboardingModule,
@@ -111,6 +112,11 @@ const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
     (module) => module.kind === "external",
   );
   const externalModuleIds = new Set(externalModules.map(({ id }) => id));
+  const destinationModuleIds = new Set(
+    definition.modules
+      .filter((module) => module.kind === "destination")
+      .map(({ id }) => id),
+  );
   const integrations: WizardStep[] = externalModules.map((module) => ({
     id: `integration-${module.id}`,
     label: module.label,
@@ -122,7 +128,10 @@ const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
       ),
     ),
   }));
-  const requirementSteps: WizardStep[] = groupRequirements(
+  const requirementSteps: Extract<
+    WizardStep,
+    { kind: "requirements" }
+  >[] = groupRequirements(
     definition.requirements.filter(
       (requirement) => !externalModuleIds.has(requirement.module),
     ),
@@ -134,10 +143,19 @@ const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
       description: group.description,
       requirements: group.requirements,
     }));
+  const destinationSteps = requirementSteps.filter((candidate) =>
+    candidate.requirements.some((requirement) =>
+      destinationModuleIds.has(requirement.module),
+    ),
+  );
+  const remainingRequirementSteps = requirementSteps.filter(
+    (candidate) => !destinationSteps.includes(candidate),
+  );
   return [
+    ...destinationSteps,
     { id: "agreement", label: "Agreement", kind: "agreement" },
     ...integrations,
-    ...requirementSteps,
+    ...remainingRequirementSteps,
     { id: "review", label: "Review", kind: "review" },
     { id: "provision", label: "Publish", kind: "provision" },
   ];
@@ -200,6 +218,17 @@ const complete = (requirement: Requirement, value: unknown) => {
   return true;
 };
 
+const completeWithConfiguration = (
+  requirement: Requirement,
+  answers: Answers,
+  configuration?: JoinLinkConfiguration,
+) =>
+  requirement.id === "scope_name" &&
+  configuration?.scopeName.fromRepository &&
+  answers.github_repository === undefined
+    ? true
+    : complete(requirement, answers[requirement.id]);
+
 const initialStep = (
   onboarding: Onboarding | undefined,
   answers: Answers,
@@ -212,26 +241,38 @@ const initialStep = (
   if (onboarding.status === "READY") {
     return steps.findIndex(({ kind }) => kind === "review");
   }
-  const missingIntegration = steps.findIndex(
-    (candidate) =>
-      candidate.kind === "integration" &&
-      (!integrationConnected(
-        onboarding,
-        candidate.module.id as IntegrationProvider,
-      ) ||
-        candidate.groups.some((group) =>
-          group.requirements.some(
-            (requirement) => !complete(requirement, answers[requirement.id]),
-          ),
-        )),
-  );
-  if (missingIntegration >= 0) return missingIntegration;
   const incomplete = steps.findIndex(
-    (candidate) =>
-      candidate.kind === "requirements" &&
-      candidate.requirements.some(
-        (requirement) => !complete(requirement, answers[requirement.id]),
-      ),
+    (candidate) => {
+      if (candidate.kind === "integration") {
+        return (
+          !integrationConnected(
+            onboarding,
+            candidate.module.id as IntegrationProvider,
+          ) ||
+          candidate.groups.some((group) =>
+            group.requirements.some(
+              (requirement) =>
+                !completeWithConfiguration(
+                  requirement,
+                  answers,
+                  onboarding.joinLinkConfiguration,
+                ),
+            ),
+          )
+        );
+      }
+      return (
+        candidate.kind === "requirements" &&
+        candidate.requirements.some(
+          (requirement) =>
+            !completeWithConfiguration(
+              requirement,
+              answers,
+              onboarding.joinLinkConfiguration,
+            ),
+        )
+      );
+    },
   );
   return incomplete >= 0
     ? incomplete
@@ -315,12 +356,16 @@ const displayValue = (value: unknown): string => {
   return String(value ?? "");
 };
 
-const slug = (value: string) =>
-  value
+const slug = (value: string) => {
+  const normalized = value
     .replace(/[^A-Za-z0-9_-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 100);
+    .slice(0, 96);
+  return normalized.length >= 3
+    ? normalized
+    : `${normalized || "repository"}-scope`;
+};
 
 const normalizedStatus = (value: string) =>
   value
@@ -402,7 +447,11 @@ export function JoinWizard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const definition = onboarding?.onboardingDefinition;
+  const selectedTemplate = templates.find(
+    ({ agreementTemplate }) => agreementTemplate._id === templateId,
+  );
+  const definition =
+    onboarding?.onboardingDefinition || selectedTemplate?.onboardingDefinition;
   const joinLinkConfiguration =
     onboarding?.joinLinkConfiguration || joinLink?.configuration;
   const steps = useMemo(() => buildSteps(definition), [definition]);
@@ -412,11 +461,14 @@ export function JoinWizard({
       ? (integrationSubsteps[activeStep.id] ??
         initialIntegrationSubstep(onboarding, activeStep, answers))
       : 0;
-  const selectedTemplate = templates.find(
-    ({ agreementTemplate }) => agreementTemplate._id === templateId,
-  );
   const agreementTemplateLocked = Boolean(
     joinLinkConfiguration && !joinLinkConfiguration.agreementTemplate.editable,
+  );
+  const scopeNameFromRepository = Boolean(
+    joinLinkConfiguration?.scopeName.fromRepository,
+  );
+  const scopeNameParticipantEditable = Boolean(
+    joinLinkConfiguration?.scopeName.editable,
   );
   const onboardingId = onboarding?._id;
 
@@ -457,6 +509,18 @@ export function JoinWizard({
         if (cancelled) return;
         setJoinLink(value);
         setTemplateId(value.configuration.agreementTemplate.value._id);
+        setAnswers((current) => {
+          const next: Answers = {
+            ...current,
+            scope_organization: value.configuration.organization.value,
+          };
+          if (value.configuration.scopeName.fromRepository) {
+            delete next.scope_name;
+          } else {
+            next.scope_name = value.configuration.scopeName.value;
+          }
+          return next;
+        });
       })
       .catch((cause) => {
         if (cancelled) return;
@@ -578,7 +642,7 @@ export function JoinWizard({
   );
 
   useEffect(() => {
-    if (!onboarding?._id || !activeRequirements.length) return;
+    if (!activeRequirements.length) return;
     let cancelled = false;
     const load = async (requirement: Requirement) => {
       if (requirement.type !== "resource") return;
@@ -588,9 +652,17 @@ export function JoinWizard({
       if (!dependenciesReady) return;
       setOptionLoading((current) => ({ ...current, [requirement.id]: true }));
       try {
+        const path = onboarding?._id
+          ? `/onboardings/${onboarding._id}/requirements/${requirement.id}/options`
+          : requirement.id === "scope_organization"
+            ? "/organization-options"
+            : undefined;
+        if (!path) return;
         const values = await api<ResourceOption[]>(
-          `/onboardings/${onboarding._id}/requirements/${requirement.id}/options`,
-          { method: "POST", body: JSON.stringify({ answers }) },
+          path,
+          onboarding?._id
+            ? { method: "POST", body: JSON.stringify({ answers }) }
+            : undefined,
         );
         if (!cancelled) {
           setOptions((current) => ({ ...current, [requirement.id]: values }));
@@ -673,6 +745,12 @@ export function JoinWizard({
         body: JSON.stringify({
           agreementTemplateId: templateId,
           joinLinkId: initialJoinLinkId,
+          answers: {
+            scope_organization: answers.scope_organization,
+            ...(typeof answers.scope_name === "string" && answers.scope_name
+              ? { scope_name: answers.scope_name }
+              : {}),
+          },
         }),
       });
       const nextAnswers = defaultAnswers(value.onboardingDefinition, value.answers);
@@ -730,15 +808,37 @@ export function JoinWizard({
     setAnswers((current) => {
       const next = { ...current, [requirementId]: value };
       for (const id of cleared) delete next[id];
-      if (
-        requirementId === "github_repository" &&
-        !next.scope_name &&
-        value &&
-        typeof value === "object"
-      ) {
-        next.scope_name = slug(
-          String((value as Record<string, unknown>).name || ""),
-        );
+      if (requirementId === "github_repository") {
+        if (scopeNameFromRepository) {
+          const previousRepositoryName =
+            current.github_repository &&
+            typeof current.github_repository === "object"
+              ? slug(
+                  String(
+                    (current.github_repository as Record<string, unknown>)
+                      .name || "",
+                  ),
+                )
+              : "";
+          const participantOverride =
+            scopeNameParticipantEditable &&
+            typeof current.scope_name === "string" &&
+            current.scope_name.length > 0 &&
+            current.scope_name !== previousRepositoryName;
+          if (participantOverride) {
+            next.scope_name = current.scope_name;
+          } else if (value && typeof value === "object") {
+            next.scope_name = slug(
+              String((value as Record<string, unknown>).name || ""),
+            );
+          } else {
+            delete next.scope_name;
+          }
+        } else if (!next.scope_name && value && typeof value === "object") {
+          next.scope_name = slug(
+            String((value as Record<string, unknown>).name || ""),
+          );
+        }
       }
       return next;
     });
@@ -748,10 +848,20 @@ export function JoinWizard({
   const continueRequirements = () => {
     if (activeStep?.kind !== "requirements") return;
     const missing = activeStep.requirements.find(
-      (requirement) => !complete(requirement, answers[requirement.id]),
+      (requirement) =>
+        !completeWithConfiguration(
+          requirement,
+          answers,
+          joinLinkConfiguration,
+        ),
     );
     if (missing) {
       setError(`Complete '${missing.ui.label}' before continuing.`);
+      return;
+    }
+    if (!onboarding) {
+      setError("");
+      setStep((current) => current + 1);
       return;
     }
     const finalConfiguration = steps[step + 1]?.kind === "review";
@@ -912,6 +1022,14 @@ export function JoinWizard({
     );
   }
 
+  if (templatesLoading && !onboarding) {
+    return (
+      <div className="card stack">
+        <Loading text="Loading onboarding steps…" />
+      </div>
+    );
+  }
+
   return (
     <div className="wizard">
       <aside className="steps" aria-label="Onboarding progress">
@@ -998,8 +1116,17 @@ export function JoinWizard({
               </div>
             )}
             <div className="actions">
+              <button
+                className="button secondary"
+                onClick={() => setStep((current) => current - 1)}
+              >
+                Back
+              </button>
               {onboarding ? (
-                <button className="button" onClick={() => setStep(1)}>
+                <button
+                  className="button"
+                  onClick={() => setStep((current) => current + 1)}
+                >
                   Continue
                 </button>
               ) : (
@@ -1041,14 +1168,33 @@ export function JoinWizard({
               <h2>{activeStep.title}</h2>
               <p>{activeStep.description}</p>
             </div>
-            {renderRequirementFields(activeStep.requirements)}
+            {scopeNameFromRepository &&
+              activeStep.requirements.some(({ id }) => id === "scope_name") && (
+                <div className="notice">
+                  {scopeNameParticipantEditable
+                    ? "Leave the Scope name blank to use the enrolled repository name automatically, or enter a different name."
+                    : "The Scope name will be set automatically from the enrolled repository."}
+                </div>
+              )}
+            {renderRequirementFields(
+              activeStep.requirements.filter(
+                ({ id }) =>
+                  !(
+                    scopeNameFromRepository &&
+                    !scopeNameParticipantEditable &&
+                    id === "scope_name"
+                  ),
+              ),
+            )}
             <div className="actions">
-              <button
-                className="button secondary"
-                onClick={() => setStep((current) => current - 1)}
-              >
-                Back
-              </button>
+              {step > 0 && (
+                <button
+                  className="button secondary"
+                  onClick={() => setStep((current) => current - 1)}
+                >
+                  Back
+                </button>
+              )}
               <button className="button" onClick={continueRequirements} disabled={busy}>
                 Continue
               </button>

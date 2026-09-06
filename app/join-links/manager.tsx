@@ -1,6 +1,12 @@
 "use client";
 
+import { CheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { joinApi } from "@/lib/join-api";
 import type {
   JoinLink,
@@ -33,6 +39,11 @@ const linkFieldLabels: Record<keyof JoinLinkConfiguration, string> = {
 const errorMessage = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback;
 
+const displayedScopeName = (link: JoinLink) =>
+  link.configuration.scopeName.fromRepository
+    ? "Repository name (automatic)"
+    : link.configuration.scopeName.value;
+
 export function JoinLinkManager() {
   const [organizations, setOrganizations] = useState<JoinLinkOrganization[]>(
     [],
@@ -42,6 +53,7 @@ export function JoinLinkManager() {
   const [organizationName, setOrganizationName] = useState("");
   const [agreementTemplateId, setAgreementTemplateId] = useState("");
   const [scopeName, setScopeName] = useState("");
+  const [scopeNameFromRepository, setScopeNameFromRepository] = useState(false);
   const [validityInitial, setValidityInitial] = useState("");
   const [validityEnd, setValidityEnd] = useState("");
   const [timezone, setTimezone] = useState("");
@@ -53,6 +65,14 @@ export function JoinLinkManager() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [origin, setOrigin] = useState("");
+  const selectedTemplate = templates.find(
+    ({ agreementTemplate }) => agreementTemplate._id === agreementTemplateId,
+  );
+  const supportsRepositoryScopeName = Boolean(
+    selectedTemplate?.onboardingDefinition.requirements.some(
+      ({ id }) => id === "github_repository",
+    ),
+  );
 
   useEffect(() => {
     const defaultsTimer = window.setTimeout(() => {
@@ -151,7 +171,8 @@ export function JoinLinkManager() {
               end: validityEnd,
               timezone,
             },
-            scopeName,
+            scopeName: scopeNameFromRepository ? undefined : scopeName,
+            scopeNameFromRepository,
             editable,
           }),
         },
@@ -240,7 +261,21 @@ export function JoinLinkManager() {
             className="input"
             required
             value={agreementTemplateId}
-            onChange={(event) => setAgreementTemplateId(event.target.value)}
+            onChange={(event) => {
+              const nextTemplateId = event.target.value;
+              const nextTemplate = templates.find(
+                ({ agreementTemplate }) =>
+                  agreementTemplate._id === nextTemplateId,
+              );
+              setAgreementTemplateId(nextTemplateId);
+              if (
+                !nextTemplate?.onboardingDefinition.requirements.some(
+                  ({ id }) => id === "github_repository",
+                )
+              ) {
+                setScopeNameFromRepository(false);
+              }
+            }}
           >
             {templates.map(({ agreementTemplate }) => (
               <option key={agreementTemplate._id} value={agreementTemplate._id}>
@@ -301,16 +336,62 @@ export function JoinLinkManager() {
             setEditable((current) => ({ ...current, scopeName: value }))
           }
         >
-          <input
-            className="input"
-            required
-            minLength={3}
-            maxLength={96}
-            pattern="[A-Za-z0-9_-]+"
-            value={scopeName}
-            onChange={(event) => setScopeName(event.target.value)}
-            placeholder="my-project-scope"
-          />
+          <InputGroup className="h-11 rounded-[10px]">
+            <InputGroupInput
+              className="h-11"
+              required={!scopeNameFromRepository}
+              disabled={scopeNameFromRepository}
+              minLength={3}
+              maxLength={96}
+              pattern="[A-Za-z0-9_-]+"
+              value={scopeName}
+              onChange={(event) => setScopeName(event.target.value)}
+              placeholder={
+                scopeNameFromRepository
+                  ? "Set from enrolled repository"
+                  : "my-project-scope"
+              }
+            />
+            <InputGroupAddon
+              align="inline-end"
+              className="h-full shrink-0 border-l px-3"
+            >
+              <label
+                className="flex h-full cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                title="Use the enrolled repository name automatically"
+              >
+                <input
+                  className="peer sr-only"
+                  type="checkbox"
+                  aria-label="Use the enrolled repository name automatically"
+                  checked={scopeNameFromRepository}
+                  disabled={!supportsRepositoryScopeName}
+                  onChange={(event) => {
+                    const automatic = event.target.checked;
+                    setScopeNameFromRepository(automatic);
+                    setError("");
+                    if (automatic) {
+                      setScopeName("");
+                    }
+                  }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="grid size-4 shrink-0 place-items-center rounded-[4px] border border-input bg-background transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50 [&_svg]:opacity-0 peer-checked:[&_svg]:opacity-100"
+                >
+                  <CheckIcon className="size-3 text-primary-foreground" />
+                </span>
+                <span className="whitespace-nowrap peer-checked:text-primary">
+                  Auto
+                </span>
+              </label>
+            </InputGroupAddon>
+          </InputGroup>
+          {scopeNameFromRepository && (
+            <span className="muted text-sm">
+              Scope will match the repository selected during enrollment.
+            </span>
+          )}
         </ConfiguredField>
 
         <div className="actions">
@@ -335,7 +416,7 @@ export function JoinLinkManager() {
               <article className="link-card" key={link._id}>
                 <div className="link-card-header">
                   <div>
-                    <strong>{link.configuration.scopeName.value}</strong>
+                    <strong>{displayedScopeName(link)}</strong>
                     <span className="muted">
                       {new Date(link.createdAt).toLocaleString()}
                     </span>
@@ -350,7 +431,7 @@ export function JoinLinkManager() {
                 </div>
                 <input
                   className="input link-url"
-                  aria-label={`Join link for ${link.configuration.scopeName.value}`}
+                  aria-label={`Join link for ${displayedScopeName(link)}`}
                   readOnly
                   value={joinUrl(link._id)}
                   onFocus={(event) => event.currentTarget.select()}
@@ -366,9 +447,14 @@ export function JoinLinkManager() {
                       key={field}
                     >
                       {linkFieldLabels[field]}:{" "}
-                      {link.configuration[field].editable
-                        ? "editable"
-                        : "locked"}
+                      {field === "scopeName" &&
+                      link.configuration.scopeName.fromRepository
+                        ? link.configuration.scopeName.editable
+                          ? "automatic, editable"
+                          : "automatic"
+                        : link.configuration[field].editable
+                          ? "editable"
+                          : "locked"}
                     </span>
                   ))}
                 </div>

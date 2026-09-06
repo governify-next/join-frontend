@@ -74,7 +74,9 @@ export type JoinLinkConfiguration = {
     end: string;
     timezone: string;
   }>;
-  scopeName: JoinLinkField<string>;
+  scopeName: JoinLinkField<string> & {
+    fromRepository: boolean;
+  };
 };
 
 export type JoinLink = {
