@@ -1172,8 +1172,8 @@ export function JoinWizard({
               activeStep.requirements.some(({ id }) => id === "scope_name") && (
                 <div className="notice">
                   {scopeNameParticipantEditable
-                    ? "Leave the Scope name blank to use the enrolled repository name automatically, or enter a different name."
-                    : "The Scope name will be set automatically from the enrolled repository."}
+                    ? "Leave the Scope and agreement name blank to use the enrolled repository name automatically, or enter a different name."
+                    : "The Scope and agreement name will be set automatically from the enrolled repository."}
                 </div>
               )}
             {renderRequirementFields(

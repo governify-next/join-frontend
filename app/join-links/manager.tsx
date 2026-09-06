@@ -33,7 +33,7 @@ const linkFieldLabels: Record<keyof JoinLinkConfiguration, string> = {
   organization: "Organization",
   agreementTemplate: "Agreement template",
   agreementValidity: "Agreement validity",
-  scopeName: "Scope name",
+  scopeName: "Scope and agreement name",
 };
 
 const errorMessage = (cause: unknown, fallback: string) =>
@@ -330,7 +330,7 @@ export function JoinLinkManager() {
         </ConfiguredField>
 
         <ConfiguredField
-          label="Scope name"
+          label="Scope and agreement name"
           editable={editable.scopeName}
           onEditableChange={(value) =>
             setEditable((current) => ({ ...current, scopeName: value }))
