@@ -1207,7 +1207,7 @@ export function JoinWizard({
               <div className="eyebrow">Ready to publish</div>
               <h2>Review the completed onboarding</h2>
               <p>
-                Join will materialize signatures and Scope audit data using the selected agreement&apos;s
+                Join will materialize signatures and the Scope tree using the selected agreement&apos;s
                 mappings, publish the Scope and versioned Agreement, then start its calculations.
               </p>
             </div>
@@ -1257,7 +1257,7 @@ export function JoinWizard({
               </h2>
               <p>
                 {completed
-                  ? "The versioned Agreement, Scope copy and recurring calculation task are ready."
+                  ? "The versioned Agreement, Scope tree and recurring calculation task are ready."
                   : "This page updates automatically and the worker resumes from its last checkpoint."}
               </p>
             </div>
