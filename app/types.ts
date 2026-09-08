@@ -66,6 +66,12 @@ export type JoinLinkOrganization = {
   displayName?: string;
 };
 
+export type JoinLinkResultOptions = {
+  dashboardURL: boolean;
+  organizationURL: boolean;
+  scopeAndAgreement: boolean;
+};
+
 export type JoinLinkConfiguration = {
   organization: JoinLinkField<JoinLinkOrganization>;
   agreementTemplate: JoinLinkField<AgreementTemplate>;
@@ -74,7 +80,10 @@ export type JoinLinkConfiguration = {
     end: string;
     timezone: string;
   }>;
-  scopeName: JoinLinkField<string>;
+  scopeName: JoinLinkField<string> & {
+    fromRepository: boolean;
+  };
+  resultOptions: JoinLinkResultOptions;
 };
 
 export type JoinLink = {
@@ -96,10 +105,6 @@ export type GitHubInstallation = {
   accountLogin: string;
   accountType: string;
   htmlUrl: string;
-};
-
-export type DashboardResult = {
-  grafanaUrl: string;
 };
 
 export type Onboarding = {
@@ -128,8 +133,23 @@ export type Onboarding = {
   };
   answers?: Record<string, unknown>;
   checkpoints: string[];
-  result?: Record<string, unknown> & {
-    dashboard?: DashboardResult;
+  result?: {
+    totalCheckpoints?: number;
+    dashboardURL?: string;
+    organizationURL?: string;
+    scopeAndAgreement?: Record<string, unknown>;
   };
   failure?: { step: string; message: string; retryable: boolean };
+};
+
+export type OnboardingSummary = Pick<Onboarding, "_id" | "status"> & {
+  scopeName: string;
+  organizationName: string;
+  agreementTemplate: Pick<AgreementTemplate, "name" | "displayName">;
+  createdAt: string;
+  updatedAt: string;
+  result?: Pick<
+    NonNullable<Onboarding["result"]>,
+    "dashboardURL" | "organizationURL"
+  >;
 };

@@ -1,15 +1,26 @@
 "use client";
 
+import { CheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { joinApi } from "@/lib/join-api";
 import type {
   JoinLink,
-  JoinLinkConfiguration,
   JoinLinkOrganization,
+  JoinLinkResultOptions,
   TemplateOption,
 } from "../types";
 
-type EditableConfiguration = Record<keyof JoinLinkConfiguration, boolean>;
+type EditableField =
+  | "organization"
+  | "agreementTemplate"
+  | "agreementValidity"
+  | "scopeName";
+type EditableConfiguration = Record<EditableField, boolean>;
 
 const initialEditable: EditableConfiguration = {
   organization: false,
@@ -18,20 +29,37 @@ const initialEditable: EditableConfiguration = {
   scopeName: false,
 };
 
+const initialResultOptions: JoinLinkResultOptions = {
+  dashboardURL: true,
+  organizationURL: true,
+  scopeAndAgreement: true,
+};
+
 const localDateTime = (date: Date) => {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 };
 
-const linkFieldLabels: Record<keyof JoinLinkConfiguration, string> = {
+const linkFieldLabels: Record<EditableField, string> = {
   organization: "Organization",
   agreementTemplate: "Agreement template",
   agreementValidity: "Agreement validity",
-  scopeName: "Scope name",
+  scopeName: "Scope and agreement name",
+};
+
+const resultOptionLabels: Record<keyof JoinLinkResultOptions, string> = {
+  dashboardURL: "Dashboard button",
+  organizationURL: "Organization button",
+  scopeAndAgreement: "Scope and Agreement data",
 };
 
 const errorMessage = (cause: unknown, fallback: string) =>
   cause instanceof Error ? cause.message : fallback;
+
+const displayedScopeName = (link: JoinLink) =>
+  link.configuration.scopeName.fromRepository
+    ? "Repository name (automatic)"
+    : link.configuration.scopeName.value;
 
 export function JoinLinkManager() {
   const [organizations, setOrganizations] = useState<JoinLinkOrganization[]>(
@@ -42,17 +70,29 @@ export function JoinLinkManager() {
   const [organizationName, setOrganizationName] = useState("");
   const [agreementTemplateId, setAgreementTemplateId] = useState("");
   const [scopeName, setScopeName] = useState("");
+  const [scopeNameFromRepository, setScopeNameFromRepository] = useState(false);
   const [validityInitial, setValidityInitial] = useState("");
   const [validityEnd, setValidityEnd] = useState("");
   const [timezone, setTimezone] = useState("");
   const [editable, setEditable] =
     useState<EditableConfiguration>(initialEditable);
+  const [resultOptions, setResultOptions] = useState<JoinLinkResultOptions>(
+    initialResultOptions,
+  );
   const [loading, setLoading] = useState(true);
   const [linksLoading, setLinksLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [origin, setOrigin] = useState("");
+  const selectedTemplate = templates.find(
+    ({ agreementTemplate }) => agreementTemplate._id === agreementTemplateId,
+  );
+  const supportsRepositoryScopeName = Boolean(
+    selectedTemplate?.onboardingDefinition.requirements.some(
+      ({ id }) => id === "github_repository",
+    ),
+  );
 
   useEffect(() => {
     const defaultsTimer = window.setTimeout(() => {
@@ -151,8 +191,10 @@ export function JoinLinkManager() {
               end: validityEnd,
               timezone,
             },
-            scopeName,
+            scopeName: scopeNameFromRepository ? undefined : scopeName,
+            scopeNameFromRepository,
             editable,
+            resultOptions,
           }),
         },
       );
@@ -240,7 +282,21 @@ export function JoinLinkManager() {
             className="input"
             required
             value={agreementTemplateId}
-            onChange={(event) => setAgreementTemplateId(event.target.value)}
+            onChange={(event) => {
+              const nextTemplateId = event.target.value;
+              const nextTemplate = templates.find(
+                ({ agreementTemplate }) =>
+                  agreementTemplate._id === nextTemplateId,
+              );
+              setAgreementTemplateId(nextTemplateId);
+              if (
+                !nextTemplate?.onboardingDefinition.requirements.some(
+                  ({ id }) => id === "github_repository",
+                )
+              ) {
+                setScopeNameFromRepository(false);
+              }
+            }}
           >
             {templates.map(({ agreementTemplate }) => (
               <option key={agreementTemplate._id} value={agreementTemplate._id}>
@@ -295,23 +351,96 @@ export function JoinLinkManager() {
         </ConfiguredField>
 
         <ConfiguredField
-          label="Scope name"
+          label="Scope and agreement name"
           editable={editable.scopeName}
           onEditableChange={(value) =>
             setEditable((current) => ({ ...current, scopeName: value }))
           }
         >
-          <input
-            className="input"
-            required
-            minLength={3}
-            maxLength={96}
-            pattern="[A-Za-z0-9_-]+"
-            value={scopeName}
-            onChange={(event) => setScopeName(event.target.value)}
-            placeholder="my-project-scope"
-          />
+          <InputGroup className="h-11 rounded-[10px]">
+            <InputGroupInput
+              className="h-11"
+              required={!scopeNameFromRepository}
+              disabled={scopeNameFromRepository}
+              minLength={3}
+              maxLength={96}
+              pattern="[A-Za-z0-9_-]+"
+              value={scopeName}
+              onChange={(event) => setScopeName(event.target.value)}
+              placeholder={
+                scopeNameFromRepository
+                  ? "Set from enrolled repository"
+                  : "my-project-scope"
+              }
+            />
+            <InputGroupAddon
+              align="inline-end"
+              className="h-full shrink-0 border-l px-3"
+            >
+              <label
+                className="flex h-full cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                title="Use the enrolled repository name automatically"
+              >
+                <input
+                  className="peer sr-only"
+                  type="checkbox"
+                  aria-label="Use the enrolled repository name automatically"
+                  checked={scopeNameFromRepository}
+                  disabled={!supportsRepositoryScopeName}
+                  onChange={(event) => {
+                    const automatic = event.target.checked;
+                    setScopeNameFromRepository(automatic);
+                    setError("");
+                    if (automatic) {
+                      setScopeName("");
+                    }
+                  }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="grid size-4 shrink-0 place-items-center rounded-[4px] border border-input bg-background transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50 [&_svg]:opacity-0 peer-checked:[&_svg]:opacity-100"
+                >
+                  <CheckIcon className="size-3 text-primary-foreground" />
+                </span>
+                <span className="whitespace-nowrap peer-checked:text-primary">
+                  Auto
+                </span>
+              </label>
+            </InputGroupAddon>
+          </InputGroup>
+          {scopeNameFromRepository && (
+            <span className="muted text-sm">
+              Scope will match the repository selected during enrollment.
+            </span>
+          )}
         </ConfiguredField>
+
+        <fieldset className="configured-field">
+          <legend>Result options</legend>
+          <div className="configured-field-content">
+            <span className="muted text-sm">
+              Only selected result data will be sent to participants after
+              onboarding.
+            </span>
+            {(Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]).map(
+              (option) => (
+                <label className="toggle" key={option}>
+                  <input
+                    type="checkbox"
+                    checked={resultOptions[option]}
+                    onChange={(event) =>
+                      setResultOptions((current) => ({
+                        ...current,
+                        [option]: event.target.checked,
+                      }))
+                    }
+                  />
+                  {resultOptionLabels[option]}
+                </label>
+              ),
+            )}
+          </div>
+        </fieldset>
 
         <div className="actions">
           <button className="button" type="submit" disabled={saving}>
@@ -335,7 +464,7 @@ export function JoinLinkManager() {
               <article className="link-card" key={link._id}>
                 <div className="link-card-header">
                   <div>
-                    <strong>{link.configuration.scopeName.value}</strong>
+                    <strong>{displayedScopeName(link)}</strong>
                     <span className="muted">
                       {new Date(link.createdAt).toLocaleString()}
                     </span>
@@ -350,7 +479,7 @@ export function JoinLinkManager() {
                 </div>
                 <input
                   className="input link-url"
-                  aria-label={`Join link for ${link.configuration.scopeName.value}`}
+                  aria-label={`Join link for ${displayedScopeName(link)}`}
                   readOnly
                   value={joinUrl(link._id)}
                   onFocus={(event) => event.currentTarget.select()}
@@ -359,18 +488,34 @@ export function JoinLinkManager() {
                   {(
                     Object.keys(
                       linkFieldLabels,
-                    ) as (keyof JoinLinkConfiguration)[]
+                    ) as EditableField[]
                   ).map((field) => (
                     <span
                       className={`badge ${link.configuration[field].editable ? "editable" : ""}`}
                       key={field}
                     >
                       {linkFieldLabels[field]}:{" "}
-                      {link.configuration[field].editable
-                        ? "editable"
-                        : "locked"}
+                      {field === "scopeName" &&
+                      link.configuration.scopeName.fromRepository
+                        ? link.configuration.scopeName.editable
+                          ? "automatic, editable"
+                          : "automatic"
+                        : link.configuration[field].editable
+                          ? "editable"
+                          : "locked"}
                     </span>
                   ))}
+                  {(
+                    Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]
+                  ).map((option) => {
+                    const enabled =
+                      link.configuration.resultOptions?.[option] ?? true;
+                    return (
+                      <span className="badge" key={option}>
+                        {resultOptionLabels[option]}: {enabled ? "shown" : "hidden"}
+                      </span>
+                    );
+                  })}
                 </div>
               </article>
             ))}
