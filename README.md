@@ -1,6 +1,8 @@
 # Governify Join Frontend
 
-Next.js wizard for onboarding provider projects into Governify. The login-protected root page uses Join Backend's local demo catalog and can restore an onboarding from `?onboarding=<id>`.
+Next.js wizard for onboarding provider projects into Governify. The login-protected root page lists the current user's onboardings, most recently updated first. Unfinished onboardings can be resumed or deleted; completed onboardings link to their summary and show organization/dashboard buttons when enabled by their join-link result options. Publishing entries refresh automatically.
+
+New onboardings start from `?joinLink=<id>`. Both saved progress and completed summaries open at `?onboarding=<id>`. Completed onboardings open the wizard's Review step with saved answers and enabled result outputs, without edit or publish actions. Deleting an unfinished onboarding removes saved progress and stops publishing at its next save; any resources already published remain in the ecosystem.
 
 Each selected agreement returns a versioned onboarding definition. The wizard renders one main step per external integration and presents that module's requirement groups as progressive internal sub-steps. GitHub becomes `Connect → Repository → Project → Members`, omitting sub-steps not required by the selected agreement. It uses OAuth-first discovery: existing App installations return directly to Repository, while users without an installation are forwarded through installation automatically. The remaining guided fields include dependent resource selectors, single/multiple choices, text, validity, review, and provisioning progress. ZenHub uses explicit demo mocks. Join Backend publishes the completed Scope, Agreement collection and Agreement version, starts an immediate calculation and schedules hourly calculations.
 

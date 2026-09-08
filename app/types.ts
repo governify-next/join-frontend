@@ -141,3 +141,15 @@ export type Onboarding = {
   };
   failure?: { step: string; message: string; retryable: boolean };
 };
+
+export type OnboardingSummary = Pick<Onboarding, "_id" | "status"> & {
+  scopeName: string;
+  organizationName: string;
+  agreementTemplate: Pick<AgreementTemplate, "name" | "displayName">;
+  createdAt: string;
+  updatedAt: string;
+  result?: Pick<
+    NonNullable<Onboarding["result"]>,
+    "dashboardURL" | "organizationURL"
+  >;
+};

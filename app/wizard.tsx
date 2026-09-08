@@ -9,6 +9,7 @@ import {
 } from "react";
 import { joinApi as api } from "@/lib/join-api";
 import { RequirementField, type ResourceAction } from "./requirement-field";
+import { OnboardingResultLinks } from "./onboarding-result-links";
 import type {
   IntegrationProvider,
   JoinLink,
@@ -235,10 +236,10 @@ const initialStep = (
   steps: WizardStep[],
 ) => {
   if (!onboarding) return 0;
-  if (["PROVISIONING", "COMPLETED", "FAILED"].includes(onboarding.status)) {
+  if (["PROVISIONING", "FAILED"].includes(onboarding.status)) {
     return steps.findIndex(({ kind }) => kind === "provision");
   }
-  if (onboarding.status === "READY") {
+  if (["READY", "COMPLETED"].includes(onboarding.status)) {
     return steps.findIndex(({ kind }) => kind === "review");
   }
   const incomplete = steps.findIndex(
@@ -961,8 +962,6 @@ export function JoinWizard({
     });
 
   const completed = onboarding?.status === "COMPLETED";
-  const dashboardURL = onboarding?.result?.dashboardURL;
-  const organizationURL = onboarding?.result?.organizationURL;
   const scopeAndAgreement = onboarding?.result?.scopeAndAgreement;
   const totalCheckpoints = Number(onboarding?.result?.totalCheckpoints || 9);
   const progress = Math.round(
@@ -1035,9 +1034,10 @@ export function JoinWizard({
         {steps.map((candidate, index) => (
           <div
             key={candidate.id}
-            className={`step ${index === step ? "active" : ""} ${index < step ? "done" : ""}`}
+            className={`step ${index === step ? "active" : ""} ${completed || index < step ? "done" : ""}`}
+            aria-current={index === step ? "step" : undefined}
           >
-            <span className="step-index">{index < step ? "✓" : index + 1}</span>
+            <span className="step-index">{completed || index < step ? "✓" : index + 1}</span>
             <span>{candidate.label}</span>
           </div>
         ))}
@@ -1204,11 +1204,14 @@ export function JoinWizard({
         {activeStep?.kind === "review" && onboarding && (
           <>
             <div>
-              <div className="eyebrow">Ready to publish</div>
+              <div className="eyebrow">
+                {completed ? "Onboarding complete" : "Ready to publish"}
+              </div>
               <h2>Review the completed onboarding</h2>
               <p>
-                Join will materialize signatures and the Scope tree using the selected agreement&apos;s
-                mappings, publish the Scope and versioned Agreement, then start its calculations.
+                {completed
+                  ? "These are the saved agreement and configuration details for your completed onboarding."
+                  : "Join will materialize signatures and the Scope tree using the selected agreement's mappings, publish the Scope and versioned Agreement, then start its calculations."}
               </p>
             </div>
             <dl className="summary">
@@ -1224,17 +1227,19 @@ export function JoinWizard({
                 />
               ))}
             </dl>
-            <div className="actions">
-              <button
-                className="button secondary"
-                onClick={() => setStep((current) => current - 1)}
-              >
-                Back
-              </button>
-              <button className="button" onClick={() => provision()} disabled={busy}>
-                Provision project
-              </button>
-            </div>
+            {!completed && (
+              <div className="actions">
+                <button
+                  className="button secondary"
+                  onClick={() => setStep((current) => current - 1)}
+                >
+                  Back
+                </button>
+                <button className="button" onClick={() => provision()} disabled={busy}>
+                  Provision project
+                </button>
+              </div>
+            )}
           </>
         )}
 
@@ -1281,29 +1286,21 @@ export function JoinWizard({
                 </button>
               </div>
             )}
-            {completed && scopeAndAgreement && (
-              <details className="notice">
-                <summary>Inspect Scope and Agreement data</summary>
-                <pre style={{ overflow: "auto", whiteSpace: "pre-wrap" }}>
-                  {JSON.stringify(scopeAndAgreement, null, 2)}
-                </pre>
-              </details>
-            )}
-            {completed && (organizationURL || dashboardURL) && (
-              <div className="actions">
-                {organizationURL && (
-                  <a className="button" href={organizationURL}>
-                    Open organization
-                  </a>
-                )}
-                {dashboardURL && (
-                  <a className="button secondary" href={dashboardURL}>
-                    Open dashboard
-                  </a>
-                )}
-              </div>
-            )}
           </>
+        )}
+
+        {completed && scopeAndAgreement && (
+          <details className="notice">
+            <summary>Inspect Scope and Agreement data</summary>
+            <pre style={{ overflow: "auto", whiteSpace: "pre-wrap" }}>
+              {JSON.stringify(scopeAndAgreement, null, 2)}
+            </pre>
+          </details>
+        )}
+        {completed && (onboarding.result?.organizationURL || onboarding.result?.dashboardURL) && (
+          <div className="actions">
+            <OnboardingResultLinks onboarding={onboarding} />
+          </div>
         )}
 
         {busy && <Loading text="Working…" />}

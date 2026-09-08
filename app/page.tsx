@@ -1,20 +1,11 @@
-import { ArrowRight, CircleAlert, Settings2 } from "lucide-react";
+import { ArrowLeft, CircleAlert, Settings2 } from "lucide-react";
 import Link from "next/link";
 
 import { AppShell } from "@/components/app-shell";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { OnboardingList } from "./onboarding-list";
 import { JoinWizard } from "./wizard";
 
 type HomeSearchParams = {
@@ -36,16 +27,21 @@ export default async function Home({
   if (status === "error") {
     loadError = message || "Integration authorization was not completed.";
   }
-  const missingJoinLink = !id && !joinLink;
+  const showOnboardings = !id && !joinLink;
 
   return (
     <AppShell
       eyebrow="Governify ecosystem"
-      title="Bring your project into Governify."
+      title={
+        showOnboardings
+          ? "Your projects in Governify."
+          : "Bring your project into Governify."
+      }
       description={
         <p>
-          Choose a Governify destination and agreement template, connect only
-          the services it needs, and complete the guided setup.
+          {showOnboardings
+            ? "Keep track of your onboardings, continue setting up a project, and access your completed results."
+            : "Choose a Governify destination and agreement template, connect only the services it needs, and complete the guided setup."}
         </p>
       }
       action={
@@ -57,6 +53,14 @@ export default async function Home({
         </Button>
       }
     >
+      {!showOnboardings && (
+        <Button variant="ghost" asChild className="mb-4">
+          <Link href="/">
+            <ArrowLeft aria-hidden="true" />
+            Your onboardings
+          </Link>
+        </Button>
+      )}
       {loadError ? (
         <Card>
           <CardContent className="flex flex-col items-start gap-4">
@@ -67,24 +71,20 @@ export default async function Home({
             </Alert>
             <Button asChild>
               <Link href="/">
-                Start a new onboarding
-                <ArrowRight aria-hidden="true" />
+                Back to your onboardings
+                <ArrowLeft aria-hidden="true" />
               </Link>
             </Button>
           </CardContent>
         </Card>
-      ) : missingJoinLink ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Join link required</CardTitle>
-            <CardDescription>
-              New onboardings can only be started from a join link provided by
-              an organization administrator.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      ) : showOnboardings ? (
+        <OnboardingList />
       ) : (
-        <JoinWizard initialId={id} initialJoinLinkId={joinLink} />
+        <JoinWizard
+          key={id || joinLink}
+          initialId={id}
+          initialJoinLinkId={joinLink}
+        />
       )}
     </AppShell>
   );
