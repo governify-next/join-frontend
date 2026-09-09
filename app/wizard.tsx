@@ -999,40 +999,70 @@ export function JoinWizard({
   const progress = Math.round(
     ((onboarding?.checkpoints.length || 0) / totalCheckpoints) * 100,
   );
-  const renderRequirementFields = (requirements: Requirement[]) =>
-    requirements.map((requirement) =>
-      requirement.type === "member-details" ? (
-        <MemberDetailsField
-          key={requirement.id}
-          requirement={requirement}
-          members={answers[requirement.dependsOn?.[0] || ""]}
-          value={answers[requirement.id]}
-          onChange={(value) => updateAnswer(requirement.id, value)}
-        />
-      ) : (
-        <RequirementField
-          key={requirement.id}
-          requirement={requirement}
-          value={answers[requirement.id]}
-          options={options[requirement.id] || []}
-          loading={Boolean(optionLoading[requirement.id])}
-          dependenciesReady={(requirement.dependsOn || []).every(
-            (dependency) => answers[dependency] !== undefined,
-          )}
-          search={searches[requirement.id] || ""}
-          resourceActions={
-            requirement.id === "github_repository"
-              ? githubRepositoryActions
-              : undefined
-          }
-          locked={requirementLocked(requirement.id)}
-          onSearch={(value) =>
-            setSearches((current) => ({ ...current, [requirement.id]: value }))
-          }
-          onChange={(value) => updateAnswer(requirement.id, value)}
-        />
-      ),
+  const renderRequirementField = (requirement: Requirement) =>
+    requirement.type === "member-details" ? (
+      <MemberDetailsField
+        key={requirement.id}
+        requirement={requirement}
+        members={answers[requirement.dependsOn?.[0] || ""]}
+        value={answers[requirement.id]}
+        onChange={(value) => updateAnswer(requirement.id, value)}
+      />
+    ) : (
+      <RequirementField
+        key={requirement.id}
+        requirement={requirement}
+        value={answers[requirement.id]}
+        options={options[requirement.id] || []}
+        loading={Boolean(optionLoading[requirement.id])}
+        dependenciesReady={(requirement.dependsOn || []).every(
+          (dependency) => answers[dependency] !== undefined,
+        )}
+        search={searches[requirement.id] || ""}
+        resourceActions={
+          requirement.id === "github_repository"
+            ? githubRepositoryActions
+            : undefined
+        }
+        locked={requirementLocked(requirement.id)}
+        onSearch={(value) =>
+          setSearches((current) => ({
+            ...current,
+            [requirement.id]: value,
+          }))
+        }
+        onChange={(value) => updateAnswer(requirement.id, value)}
+      />
     );
+  const renderRequirementFields = (requirements: Requirement[]) => {
+    const columnIds = [
+      "github_in_progress_columns",
+      "github_in_review_columns",
+      "github_done_columns",
+    ];
+    const columns = columnIds.flatMap((id) =>
+      requirements.filter((requirement) => requirement.id === id),
+    );
+    const firstColumn = requirements.find((requirement) =>
+      columnIds.includes(requirement.id),
+    );
+
+    return requirements.map((requirement) => {
+      if (!columnIds.includes(requirement.id))
+        return renderRequirementField(requirement);
+      if (requirement.id !== firstColumn?.id) return null;
+      return (
+        <div
+          className="workflow-columns grid grid-cols-1 items-start gap-4 sm:grid-cols-3"
+          key="github-workflow-columns"
+          role="group"
+          aria-label="Workflow column mappings"
+        >
+          {columns.map(renderRequirementField)}
+        </div>
+      );
+    });
+  };
 
   if (joinLinkLoading) {
     return (
@@ -1530,8 +1560,8 @@ function MemberDetailsField({
           const detail = detailsByUsername.get(username);
           const idPrefix = `${requirement.id}-${index}`;
           return (
-            <FieldSet className="member-details-card" key={username}>
-              <FieldLegend>@{username}</FieldLegend>
+            <FieldSet className="member-details-card gap-2" key={username}>
+              <FieldLegend className="mb-0">@{username}</FieldLegend>
               <div className="member-details-grid">
                 <Field>
                   <FieldLabel htmlFor={`${idPrefix}-first-name`}>

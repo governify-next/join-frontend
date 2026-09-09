@@ -125,10 +125,12 @@
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 6px; }
   .member-details-list { display: flex; flex-direction: column; gap: 12px; }
-  .member-details-card { min-width: 0; margin: 0; padding: 15px; border: 1px solid var(--border); border-radius: 12px; }
-  .member-details-card legend { padding: 0 6px; color: var(--primary-dark); font-size: 14px; font-weight: 750; }
+  .member-details-card { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+  .member-details-card legend { margin-bottom: 0; padding: 0 6px; color: var(--primary-dark); font-size: 14px; font-weight: 750; }
   .member-details-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .workflow-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; min-width: 0; }
+  .workflow-columns > * { min-width: 0; }
   .option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .summary { display: grid; grid-template-columns: 180px 1fr; gap: 10px; font-size: 14px; }
   .summary dt { color: var(--muted-foreground); }
@@ -147,6 +149,10 @@
   .link-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   .badge-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 
+
+  @media (max-width: 560px) {
+    .workflow-columns { grid-template-columns: 1fr; }
+  }
 
   @media (max-width: 760px) {
     .wizard { grid-template-columns: 1fr; }
