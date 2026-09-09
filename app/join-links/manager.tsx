@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -102,7 +104,6 @@ export function JoinLinkManager() {
   const [linksLoading, setLinksLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [origin, setOrigin] = useState("");
   const selectedTemplate = templates.find(
     ({ agreementTemplate }) => agreementTemplate._id === agreementTemplateId,
@@ -179,10 +180,9 @@ export function JoinLinkManager() {
   const copyLink = async (link: JoinLink) => {
     try {
       await navigator.clipboard.writeText(joinUrl(link._id));
-      setNotice("Join link copied to the clipboard.");
-      setError("");
+      toast.success("Join link copied to the clipboard.");
     } catch {
-      setError(
+      toast.error(
         "The join link could not be copied. Copy it from the field instead.",
       );
     }
@@ -191,7 +191,6 @@ export function JoinLinkManager() {
   const generate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setNotice("");
     if (!organizationName || !agreementTemplateId) {
       setError("Select an organization and an agreement template.");
       return;
@@ -218,7 +217,7 @@ export function JoinLinkManager() {
         },
       );
       setLinks((current) => [link, ...current]);
-      setNotice(
+      toast.success(
         "Join link generated. Only members of the organization can use it.",
       );
     } catch (cause) {
@@ -268,12 +267,6 @@ export function JoinLinkManager() {
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {notice && (
-            <Alert role="status" className="text-green-700 dark:text-green-400">
-              <AlertDescription>{notice}</AlertDescription>
             </Alert>
           )}
 

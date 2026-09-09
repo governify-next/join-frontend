@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import {
   ArrowRight,
   CircleAlert,
@@ -55,7 +57,6 @@ export function OnboardingList() {
   const [onboardings, setOnboardings] = useState<OnboardingSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<string>();
   const [deleting, setDeleting] = useState<string>();
@@ -99,7 +100,6 @@ export function OnboardingList() {
   const remove = async (onboarding: OnboardingSummary) => {
     setDeleting(onboarding._id);
     setError("");
-    setNotice("");
     try {
       await joinApi(`/onboardings/${encodeURIComponent(onboarding._id)}`, {
         method: "DELETE",
@@ -108,7 +108,7 @@ export function OnboardingList() {
         values.filter(({ _id }) => _id !== onboarding._id),
       );
       setPendingDelete(undefined);
-      setNotice(`${onboardingName(onboarding)} was deleted.`);
+      toast.success(`${onboardingName(onboarding)} was deleted.`);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Unable to delete onboarding.",
@@ -154,12 +154,6 @@ export function OnboardingList() {
           <AlertTitle>Unable to update onboardings</AlertTitle>
           <AlertDescription>{error} Use Refresh to try again.</AlertDescription>
         </Alert>
-      )}
-
-      {notice && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {notice}
-        </p>
       )}
 
       {loading && onboardings.length === 0 ? (
