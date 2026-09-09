@@ -1,6 +1,28 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  FieldDescription,
+  FieldLabel,
+  FieldSet,
+  FieldLegend,
+} from "@/components/ui/field";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoaderCircle } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import {
   InputGroup,
@@ -76,14 +98,12 @@ export function JoinLinkManager() {
   const [timezone, setTimezone] = useState("");
   const [editable, setEditable] =
     useState<EditableConfiguration>(initialEditable);
-  const [resultOptions, setResultOptions] = useState<JoinLinkResultOptions>(
-    initialResultOptions,
-  );
+  const [resultOptions, setResultOptions] =
+    useState<JoinLinkResultOptions>(initialResultOptions);
   const [loading, setLoading] = useState(true);
   const [linksLoading, setLinksLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [origin, setOrigin] = useState("");
   const selectedTemplate = templates.find(
     ({ agreementTemplate }) => agreementTemplate._id === agreementTemplateId,
@@ -160,10 +180,9 @@ export function JoinLinkManager() {
   const copyLink = async (link: JoinLink) => {
     try {
       await navigator.clipboard.writeText(joinUrl(link._id));
-      setNotice("Join link copied to the clipboard.");
-      setError("");
+      toast.success("Join link copied to the clipboard.");
     } catch {
-      setError(
+      toast.error(
         "The join link could not be copied. Copy it from the field instead.",
       );
     }
@@ -172,7 +191,6 @@ export function JoinLinkManager() {
   const generate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    setNotice("");
     if (!organizationName || !agreementTemplateId) {
       setError("Select an organization and an agreement template.");
       return;
@@ -199,7 +217,7 @@ export function JoinLinkManager() {
         },
       );
       setLinks((current) => [link, ...current]);
-      setNotice(
+      toast.success(
         "Join link generated. Only members of the organization can use it.",
       );
     } catch (cause) {
@@ -211,16 +229,21 @@ export function JoinLinkManager() {
 
   if (loading) {
     return (
-      <div className="card row muted">
-        <span className="spinner" /> Loading administration options…
-      </div>
+      <Card className="min-w-0 gap-4 p-6">
+        <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />{" "}
+        Loading administration options…
+      </Card>
     );
   }
 
   if (!organizations.length) {
     return (
-      <div className="card stack">
-        {error && <div className="notice error">{error}</div>}
+      <Card className="min-w-0 gap-4 p-6">
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <div>
           <h2>No administrable organizations</h2>
           <p>
@@ -228,302 +251,316 @@ export function JoinLinkManager() {
             join links.
           </p>
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div className="admin-grid">
-      <form className="card stack" onSubmit={generate}>
-        <div>
-          <h2>Link configuration</h2>
-          <p>These values are stored with the generated link in Join.</p>
-        </div>
-
-        {error && <div className="notice error">{error}</div>}
-        {notice && <div className="notice success">{notice}</div>}
-
-        <ConfiguredField
-          label="Organization"
-          editable={editable.organization}
-          onEditableChange={(value) =>
-            setEditable((current) => ({ ...current, organization: value }))
-          }
-        >
-          <select
-            className="input"
-            value={organizationName}
-            onChange={(event) => {
-              setLinks([]);
-              setLinksLoading(true);
-              setError("");
-              setOrganizationName(event.target.value);
-            }}
-          >
-            {organizations.map((organization) => (
-              <option key={organization._id} value={organization.name}>
-                {organization.displayName || organization.name}
-              </option>
-            ))}
-          </select>
-        </ConfiguredField>
-
-        <ConfiguredField
-          label="Agreement template"
-          editable={editable.agreementTemplate}
-          onEditableChange={(value) =>
-            setEditable((current) => ({
-              ...current,
-              agreementTemplate: value,
-            }))
-          }
-        >
-          <select
-            className="input"
-            required
-            value={agreementTemplateId}
-            onChange={(event) => {
-              const nextTemplateId = event.target.value;
-              const nextTemplate = templates.find(
-                ({ agreementTemplate }) =>
-                  agreementTemplate._id === nextTemplateId,
-              );
-              setAgreementTemplateId(nextTemplateId);
-              if (
-                !nextTemplate?.onboardingDefinition.requirements.some(
-                  ({ id }) => id === "github_repository",
-                )
-              ) {
-                setScopeNameFromRepository(false);
-              }
-            }}
-          >
-            {templates.map(({ agreementTemplate }) => (
-              <option key={agreementTemplate._id} value={agreementTemplate._id}>
-                {agreementTemplate.displayName || agreementTemplate.name}
-              </option>
-            ))}
-          </select>
-        </ConfiguredField>
-
-        <ConfiguredField
-          label="Agreement validity"
-          editable={editable.agreementValidity}
-          onEditableChange={(value) =>
-            setEditable((current) => ({
-              ...current,
-              agreementValidity: value,
-            }))
-          }
-        >
-          <div className="grid-2">
-            <label className="field">
-              <span>Starts</span>
-              <input
-                className="input"
-                type="datetime-local"
-                required
-                value={validityInitial}
-                onChange={(event) => setValidityInitial(event.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Ends</span>
-              <input
-                className="input"
-                type="datetime-local"
-                required
-                value={validityEnd}
-                onChange={(event) => setValidityEnd(event.target.value)}
-              />
-            </label>
+      <Card className="p-6">
+        <form className="flex flex-col gap-4" onSubmit={generate}>
+          <div>
+            <h2>Link configuration</h2>
+            <p>These values are stored with the generated link in Join.</p>
           </div>
-          <label className="field">
-            <span>Timezone</span>
-            <input
-              className="input"
-              required
-              value={timezone}
-              onChange={(event) => setTimezone(event.target.value)}
-              placeholder="Europe/Madrid"
-            />
-          </label>
-        </ConfiguredField>
 
-        <ConfiguredField
-          label="Scope and agreement name"
-          editable={editable.scopeName}
-          onEditableChange={(value) =>
-            setEditable((current) => ({ ...current, scopeName: value }))
-          }
-        >
-          <InputGroup className="h-11 rounded-[10px]">
-            <InputGroupInput
-              className="h-11"
-              required={!scopeNameFromRepository}
-              disabled={scopeNameFromRepository}
-              minLength={3}
-              maxLength={96}
-              pattern="[A-Za-z0-9_-]+"
-              value={scopeName}
-              onChange={(event) => setScopeName(event.target.value)}
-              placeholder={
-                scopeNameFromRepository
-                  ? "Set from enrolled repository"
-                  : "my-project-scope"
-              }
-            />
-            <InputGroupAddon
-              align="inline-end"
-              className="h-full shrink-0 border-l px-3"
-            >
-              <label
-                className="flex h-full cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-                title="Use the enrolled repository name automatically"
-              >
-                <input
-                  className="peer sr-only"
-                  type="checkbox"
-                  aria-label="Use the enrolled repository name automatically"
-                  checked={scopeNameFromRepository}
-                  disabled={!supportsRepositoryScopeName}
-                  onChange={(event) => {
-                    const automatic = event.target.checked;
-                    setScopeNameFromRepository(automatic);
-                    setError("");
-                    if (automatic) {
-                      setScopeName("");
-                    }
-                  }}
-                />
-                <span
-                  aria-hidden="true"
-                  className="grid size-4 shrink-0 place-items-center rounded-[4px] border border-input bg-background transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/50 [&_svg]:opacity-0 peer-checked:[&_svg]:opacity-100"
-                >
-                  <CheckIcon className="size-3 text-primary-foreground" />
-                </span>
-                <span className="whitespace-nowrap peer-checked:text-primary">
-                  Auto
-                </span>
-              </label>
-            </InputGroupAddon>
-          </InputGroup>
-          {scopeNameFromRepository && (
-            <span className="muted text-sm">
-              Scope will match the repository selected during enrollment.
-            </span>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-        </ConfiguredField>
 
-        <fieldset className="configured-field">
-          <legend>Result options</legend>
-          <div className="configured-field-content">
-            <span className="muted text-sm">
-              Only selected result data will be sent to participants after
-              onboarding.
-            </span>
-            {(Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]).map(
-              (option) => (
-                <label className="toggle" key={option}>
-                  <input
-                    type="checkbox"
+          <ConfiguredField
+            label="Organization"
+            editable={editable.organization}
+            onEditableChange={(value) =>
+              setEditable((current) => ({ ...current, organization: value }))
+            }
+          >
+            <Select
+              value={organizationName}
+              onValueChange={(value) => {
+                setLinks([]);
+                setLinksLoading(true);
+                setError("");
+                setOrganizationName(value);
+              }}
+            >
+              <SelectTrigger aria-label="Organization" className="w-full">
+                <SelectValue placeholder="Select an organization" />
+              </SelectTrigger>
+              <SelectContent>
+                {organizations.map((organization) => (
+                  <SelectItem key={organization._id} value={organization.name}>
+                    {organization.displayName || organization.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ConfiguredField>
+
+          <ConfiguredField
+            label="Agreement template"
+            editable={editable.agreementTemplate}
+            onEditableChange={(value) =>
+              setEditable((current) => ({
+                ...current,
+                agreementTemplate: value,
+              }))
+            }
+          >
+            <Select
+              required
+              value={agreementTemplateId}
+              onValueChange={(nextTemplateId) => {
+                const nextTemplate = templates.find(
+                  ({ agreementTemplate }) =>
+                    agreementTemplate._id === nextTemplateId,
+                );
+                setAgreementTemplateId(nextTemplateId);
+                if (
+                  !nextTemplate?.onboardingDefinition.requirements.some(
+                    ({ id }) => id === "github_repository",
+                  )
+                ) {
+                  setScopeNameFromRepository(false);
+                }
+              }}
+            >
+              <SelectTrigger aria-label="Agreement template" className="w-full">
+                <SelectValue placeholder="Select an agreement template" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(({ agreementTemplate }) => (
+                  <SelectItem
+                    key={agreementTemplate._id}
+                    value={agreementTemplate._id}
+                  >
+                    {agreementTemplate.displayName || agreementTemplate.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </ConfiguredField>
+
+          <ConfiguredField
+            label="Agreement validity"
+            editable={editable.agreementValidity}
+            onEditableChange={(value) =>
+              setEditable((current) => ({
+                ...current,
+                agreementValidity: value,
+              }))
+            }
+          >
+            <div className="grid-2">
+              <FieldLabel className="flex-col items-start gap-2">
+                <span>Starts</span>
+                <Input
+                  type="datetime-local"
+                  required
+                  value={validityInitial}
+                  onChange={(event) => setValidityInitial(event.target.value)}
+                />
+              </FieldLabel>
+              <FieldLabel className="flex-col items-start gap-2">
+                <span>Ends</span>
+                <Input
+                  type="datetime-local"
+                  required
+                  value={validityEnd}
+                  onChange={(event) => setValidityEnd(event.target.value)}
+                />
+              </FieldLabel>
+            </div>
+            <FieldLabel className="flex-col items-start gap-2">
+              <span>Timezone</span>
+              <Input
+                required
+                value={timezone}
+                onChange={(event) => setTimezone(event.target.value)}
+                placeholder="Europe/Madrid"
+              />
+            </FieldLabel>
+          </ConfiguredField>
+
+          <ConfiguredField
+            label="Scope and agreement name"
+            editable={editable.scopeName}
+            onEditableChange={(value) =>
+              setEditable((current) => ({ ...current, scopeName: value }))
+            }
+          >
+            <InputGroup>
+              <InputGroupInput
+                aria-label="Scope and agreement name"
+                required={!scopeNameFromRepository}
+                disabled={scopeNameFromRepository}
+                minLength={3}
+                maxLength={96}
+                pattern="[A-Za-z0-9_-]+"
+                value={scopeName}
+                onChange={(event) => setScopeName(event.target.value)}
+                placeholder={
+                  scopeNameFromRepository
+                    ? "Set from enrolled repository"
+                    : "my-project-scope"
+                }
+              />
+              <InputGroupAddon
+                align="inline-end"
+                className="h-full shrink-0 border-l px-2"
+              >
+                <FieldLabel
+                  className="flex h-full cursor-pointer items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                  title="Use the enrolled repository name automatically"
+                >
+                  <Checkbox
+                    aria-label="Use the enrolled repository name automatically"
+                    checked={scopeNameFromRepository}
+                    disabled={!supportsRepositoryScopeName}
+                    onCheckedChange={(checked) => {
+                      const automatic = checked === true;
+                      setScopeNameFromRepository(automatic);
+                      setError("");
+                      if (automatic) {
+                        setScopeName("");
+                      }
+                    }}
+                  />
+                  <span className="whitespace-nowrap">Auto</span>
+                </FieldLabel>
+              </InputGroupAddon>
+            </InputGroup>
+            {scopeNameFromRepository && (
+              <FieldDescription>
+                Scope will match the repository selected during enrollment.
+              </FieldDescription>
+            )}
+          </ConfiguredField>
+
+          <FieldSet className="configured-field gap-2">
+            <FieldLegend className="mb-0">Result options</FieldLegend>
+            <div className="flex flex-col gap-2">
+              <FieldDescription>
+                Only selected result data will be sent to participants after
+                onboarding.
+              </FieldDescription>
+              {(
+                Object.keys(
+                  resultOptionLabels,
+                ) as (keyof JoinLinkResultOptions)[]
+              ).map((option) => (
+                <FieldLabel className="toggle gap-1.5" key={option}>
+                  <Checkbox
                     checked={resultOptions[option]}
-                    onChange={(event) =>
+                    onCheckedChange={(checked) =>
                       setResultOptions((current) => ({
                         ...current,
-                        [option]: event.target.checked,
+                        [option]: checked === true,
                       }))
                     }
                   />
                   {resultOptionLabels[option]}
-                </label>
-              ),
-            )}
+                </FieldLabel>
+              ))}
+            </div>
+          </FieldSet>
+
+          <div className="actions">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Generating…" : "Generate join link"}
+            </Button>
           </div>
-        </fieldset>
+        </form>
+      </Card>
 
-        <div className="actions">
-          <button className="button" type="submit" disabled={saving}>
-            {saving ? "Generating…" : "Generate join link"}
-          </button>
-        </div>
-      </form>
-
-      <section className="card stack link-history">
+      <Card className="min-w-0 gap-4 p-6 link-history">
         <div>
           <h2>Generated links</h2>
           <p>Links for the selected organization, newest first.</p>
         </div>
         {linksLoading ? (
-          <div className="row muted">
-            <span className="spinner" /> Loading links…
+          <div className="row muted" role="status">
+            <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />{" "}
+            Loading links…
           </div>
         ) : links.length ? (
           <div className="link-list">
             {links.map((link) => (
-              <article className="link-card" key={link._id}>
+              <Card className="min-w-0 gap-3 p-4" key={link._id}>
                 <div className="link-card-header">
                   <div>
                     <strong>{displayedScopeName(link)}</strong>
-                    <span className="muted">
+                    <FieldDescription>
                       {new Date(link.createdAt).toLocaleString()}
-                    </span>
+                    </FieldDescription>
                   </div>
-                  <button
-                    className="button secondary compact-button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     type="button"
                     onClick={() => void copyLink(link)}
                   >
                     Copy
-                  </button>
+                  </Button>
                 </div>
-                <input
-                  className="input link-url"
+                <Input
+                  className="font-mono text-xs"
                   aria-label={`Join link for ${displayedScopeName(link)}`}
                   readOnly
                   value={joinUrl(link._id)}
                   onFocus={(event) => event.currentTarget.select()}
                 />
                 <div className="badge-list">
+                  {(Object.keys(linkFieldLabels) as EditableField[]).map(
+                    (field) => (
+                      <Badge
+                        variant={
+                          link.configuration[field].editable
+                            ? "secondary"
+                            : "muted"
+                        }
+                        key={field}
+                      >
+                        {linkFieldLabels[field]}:{" "}
+                        {field === "scopeName" &&
+                        link.configuration.scopeName.fromRepository
+                          ? link.configuration.scopeName.editable
+                            ? "automatic, editable"
+                            : "automatic"
+                          : link.configuration[field].editable
+                            ? "editable"
+                            : "locked"}
+                      </Badge>
+                    ),
+                  )}
                   {(
                     Object.keys(
-                      linkFieldLabels,
-                    ) as EditableField[]
-                  ).map((field) => (
-                    <span
-                      className={`badge ${link.configuration[field].editable ? "editable" : ""}`}
-                      key={field}
-                    >
-                      {linkFieldLabels[field]}:{" "}
-                      {field === "scopeName" &&
-                      link.configuration.scopeName.fromRepository
-                        ? link.configuration.scopeName.editable
-                          ? "automatic, editable"
-                          : "automatic"
-                        : link.configuration[field].editable
-                          ? "editable"
-                          : "locked"}
-                    </span>
-                  ))}
-                  {(
-                    Object.keys(resultOptionLabels) as (keyof JoinLinkResultOptions)[]
+                      resultOptionLabels,
+                    ) as (keyof JoinLinkResultOptions)[]
                   ).map((option) => {
                     const enabled =
                       link.configuration.resultOptions?.[option] ?? true;
                     return (
-                      <span className="badge" key={option}>
-                        {resultOptionLabels[option]}: {enabled ? "shown" : "hidden"}
-                      </span>
+                      <Badge variant="muted" key={option}>
+                        {resultOptionLabels[option]}:{" "}
+                        {enabled ? "shown" : "hidden"}
+                      </Badge>
                     );
                   })}
                 </div>
-              </article>
+              </Card>
             ))}
           </div>
         ) : (
-          <div className="notice">No join links have been generated yet.</div>
+          <Alert role="status">
+            <AlertDescription>
+              No join links have been generated yet.
+            </AlertDescription>
+          </Alert>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -540,17 +577,16 @@ function ConfiguredField({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="configured-field">
-      <legend>{label}</legend>
-      <label className="toggle">
-        <input
-          type="checkbox"
+    <FieldSet className="configured-field gap-2">
+      <FieldLegend className="mb-0">{label}</FieldLegend>
+      <FieldLabel className="toggle gap-1.5">
+        <Checkbox
           checked={editable}
-          onChange={(event) => onEditableChange(event.target.checked)}
+          onCheckedChange={(checked) => onEditableChange(checked === true)}
         />
         Participant can change this value
-      </label>
-      <div className="configured-field-content">{children}</div>
-    </fieldset>
+      </FieldLabel>
+      <div className="flex flex-col gap-2">{children}</div>
+    </FieldSet>
   );
 }

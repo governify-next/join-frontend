@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "sonner";
+
 import {
   ArrowRight,
   CircleAlert,
@@ -11,6 +13,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -46,7 +60,6 @@ export function OnboardingList() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<string>();
   const [deleting, setDeleting] = useState<string>();
-  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +100,6 @@ export function OnboardingList() {
   const remove = async (onboarding: OnboardingSummary) => {
     setDeleting(onboarding._id);
     setError("");
-    setNotice("");
     try {
       await joinApi(`/onboardings/${encodeURIComponent(onboarding._id)}`, {
         method: "DELETE",
@@ -96,7 +108,7 @@ export function OnboardingList() {
         values.filter(({ _id }) => _id !== onboarding._id),
       );
       setPendingDelete(undefined);
-      setNotice(`${onboardingName(onboarding)} was deleted.`);
+      toast.success(`${onboardingName(onboarding)} was deleted.`);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Unable to delete onboarding.",
@@ -143,11 +155,6 @@ export function OnboardingList() {
           <AlertDescription>{error} Use Refresh to try again.</AlertDescription>
         </Alert>
       )}
-      {notice && (
-        <p role="status" className="text-sm text-muted-foreground">
-          {notice}
-        </p>
-      )}
 
       {loading && onboardings.length === 0 ? (
         <Card>
@@ -179,17 +186,20 @@ export function OnboardingList() {
                       <h3 className="min-w-0 text-base font-semibold break-words">
                         {name}
                       </h3>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      <Badge
+                        variant={
+                          onboarding.status === "FAILED"
+                            ? "destructive"
+                            : "muted"
+                        }
+                        className={
                           completed
                             ? "bg-green-600/10 text-green-700 dark:text-green-400"
-                            : onboarding.status === "FAILED"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                        }`}
+                            : undefined
+                        }
                       >
                         {statusLabels[onboarding.status]}
-                      </span>
+                      </Badge>
                     </div>
                     <CardDescription className="break-words">
                       {[
@@ -223,42 +233,59 @@ export function OnboardingList() {
                       </Button>
                       <OnboardingResultLinks onboarding={onboarding} />
                       {!completed && (
-                        <Button
-                          variant="destructive"
-                          disabled={Boolean(deleting)}
-                          onClick={() => setPendingDelete(onboarding._id)}
+                        <AlertDialog
+                          open={pendingDelete === onboarding._id}
+                          onOpenChange={(open) => {
+                            if (!deleting)
+                              setPendingDelete(
+                                open ? onboarding._id : undefined,
+                              );
+                          }}
                         >
-                          <Trash2 aria-hidden="true" />
-                          Delete
-                        </Button>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              disabled={Boolean(deleting)}
+                            >
+                              <Trash2 aria-hidden="true" /> Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete {name}?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Saved progress will be removed. Any resources
+                                already published will remain.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            {error && (
+                              <Alert variant="destructive">
+                                <AlertDescription>{error}</AlertDescription>
+                              </Alert>
+                            )}
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={Boolean(deleting)}>
+                                Cancel
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                disabled={Boolean(deleting)}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  void remove(onboarding);
+                                }}
+                              >
+                                {deleting === onboarding._id
+                                  ? "Deleting…"
+                                  : "Delete onboarding"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       )}
                     </div>
-                    {!completed && pendingDelete === onboarding._id && (
-                      <div className="space-y-3 rounded-lg border border-destructive/30 p-4">
-                        <p className="text-sm">
-                          Delete <strong>{name}</strong>? Saved progress will be
-                          removed. Any resources already published will remain.
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="destructive"
-                            disabled={Boolean(deleting)}
-                            onClick={() => void remove(onboarding)}
-                          >
-                            {deleting === onboarding._id
-                              ? "Deleting…"
-                              : "Delete onboarding"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            disabled={Boolean(deleting)}
-                            onClick={() => setPendingDelete(undefined)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </li>
