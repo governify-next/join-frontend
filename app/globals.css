@@ -105,7 +105,7 @@
   h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.02em; }
   h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.01em; }
   p { color: var(--muted-foreground); line-height: 1.55; }
-  .wizard { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+  .wizard { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
   .steps { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 24px; }
   .step { padding: 12px; border-radius: 10px; color: var(--muted-foreground); font-size: 14px; display: flex; gap: 10px; align-items: center; }
   .step.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; }
@@ -126,7 +126,7 @@
   .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 6px; }
   .member-details-list { display: flex; flex-direction: column; gap: 12px; }
   .member-details-card { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
-  .member-details-card legend { margin-bottom: 0; padding: 0 6px; color: var(--primary-dark); font-size: 14px; font-weight: 750; }
+  .member-details-card legend { width: fit-content; margin-bottom: 0; padding: 0 6px; color: var(--primary-dark); font-size: 14px; font-weight: 750; }
   .member-details-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .workflow-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; min-width: 0; }
