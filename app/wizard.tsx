@@ -1,5 +1,19 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  FieldDescription,
+  Field,
+  FieldLabel,
+  FieldSet,
+  FieldLegend,
+  FieldTitle,
+} from "@/components/ui/field";
+import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoaderCircle } from "lucide-react";
+
 import {
   useCallback,
   useEffect,
@@ -7,6 +21,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Progress } from "@/components/ui/progress";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import { joinApi as api } from "@/lib/join-api";
 import { RequirementField, type ResourceAction } from "./requirement-field";
 import { OnboardingResultLinks } from "./onboarding-result-links";
@@ -67,14 +88,16 @@ const defaultAnswers = (
   const answers = { ...current };
   for (const requirement of definition?.requirements || []) {
     if (answers[requirement.id] !== undefined) continue;
-    if (requirement.default === "now") answers[requirement.id] = localDate(new Date());
+    if (requirement.default === "now")
+      answers[requirement.id] = localDate(new Date());
     if (requirement.default === "oneYearFromNow") {
       answers[requirement.id] = localDate(
         new Date(Date.now() + 365 * 24 * 60 * 60_000),
       );
     }
     if (requirement.default === "browserTimezone") {
-      answers[requirement.id] = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      answers[requirement.id] =
+        Intl.DateTimeFormat().resolvedOptions().timeZone;
     }
   }
   return answers;
@@ -87,7 +110,7 @@ const integrationConnected = (
   provider === "github"
     ? Boolean(
         onboarding.integrations?.github?.installationId ||
-          onboarding.integrations?.github?.installations?.length,
+        onboarding.integrations?.github?.installations?.length,
       )
     : Boolean(onboarding.integrations?.zenhub?.connectionId);
 
@@ -108,7 +131,8 @@ const groupRequirements = (requirements: Requirement[]): RequirementGroup[] => {
 };
 
 const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
-  if (!definition) return [{ id: "agreement", label: "Agreement", kind: "agreement" }];
+  if (!definition)
+    return [{ id: "agreement", label: "Agreement", kind: "agreement" }];
   const externalModules = definition.modules.filter(
     (module) => module.kind === "external",
   );
@@ -129,14 +153,12 @@ const buildSteps = (definition?: OnboardingDefinition): WizardStep[] => {
       ),
     ),
   }));
-  const requirementSteps: Extract<
-    WizardStep,
-    { kind: "requirements" }
-  >[] = groupRequirements(
-    definition.requirements.filter(
-      (requirement) => !externalModuleIds.has(requirement.module),
-    ),
-  ).map((group) => ({
+  const requirementSteps: Extract<WizardStep, { kind: "requirements" }>[] =
+    groupRequirements(
+      definition.requirements.filter(
+        (requirement) => !externalModuleIds.has(requirement.module),
+      ),
+    ).map((group) => ({
       id: `requirements-${group.id}`,
       label: group.title,
       kind: "requirements",
@@ -183,13 +205,14 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const completeMemberDetail = (value: MemberDetail) =>
   Boolean(
     value.username &&
-      value.firstName.trim() &&
-      value.lastName.trim() &&
-      emailPattern.test(value.email.trim()),
+    value.firstName.trim() &&
+    value.lastName.trim() &&
+    emailPattern.test(value.email.trim()),
   );
 
 const complete = (requirement: Requirement, value: unknown) => {
-  if (!requirement.required && (value === undefined || value === "")) return true;
+  if (!requirement.required && (value === undefined || value === ""))
+    return true;
   if (requirement.type === "member-details") {
     const details = memberDetails(value);
     return (
@@ -242,39 +265,37 @@ const initialStep = (
   if (["READY", "COMPLETED"].includes(onboarding.status)) {
     return steps.findIndex(({ kind }) => kind === "review");
   }
-  const incomplete = steps.findIndex(
-    (candidate) => {
-      if (candidate.kind === "integration") {
-        return (
-          !integrationConnected(
-            onboarding,
-            candidate.module.id as IntegrationProvider,
-          ) ||
-          candidate.groups.some((group) =>
-            group.requirements.some(
-              (requirement) =>
-                !completeWithConfiguration(
-                  requirement,
-                  answers,
-                  onboarding.joinLinkConfiguration,
-                ),
-            ),
-          )
-        );
-      }
+  const incomplete = steps.findIndex((candidate) => {
+    if (candidate.kind === "integration") {
       return (
-        candidate.kind === "requirements" &&
-        candidate.requirements.some(
-          (requirement) =>
-            !completeWithConfiguration(
-              requirement,
-              answers,
-              onboarding.joinLinkConfiguration,
-            ),
+        !integrationConnected(
+          onboarding,
+          candidate.module.id as IntegrationProvider,
+        ) ||
+        candidate.groups.some((group) =>
+          group.requirements.some(
+            (requirement) =>
+              !completeWithConfiguration(
+                requirement,
+                answers,
+                onboarding.joinLinkConfiguration,
+              ),
+          ),
         )
       );
-    },
-  );
+    }
+    return (
+      candidate.kind === "requirements" &&
+      candidate.requirements.some(
+        (requirement) =>
+          !completeWithConfiguration(
+            requirement,
+            answers,
+            onboarding.joinLinkConfiguration,
+          ),
+      )
+    );
+  });
   return incomplete >= 0
     ? incomplete
     : steps.findIndex(({ kind }) => kind === "review");
@@ -339,10 +360,13 @@ const displayValue = (value: unknown): string => {
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     if (record.firstName || record.lastName || record.email) {
-      const name = `${String(record.firstName || "")} ${String(record.lastName || "")}`.trim();
+      const name =
+        `${String(record.firstName || "")} ${String(record.lastName || "")}`.trim();
       const email = String(record.email || "");
       const username = String(record.username || "");
-      return [name, email, username ? `@${username}` : ""].filter(Boolean).join(" · ");
+      return [name, email, username ? `@${username}` : ""]
+        .filter(Boolean)
+        .join(" · ");
     }
     return String(
       record.fullName ||
@@ -389,12 +413,7 @@ const statusColumnNames: Record<string, Set<string>> = {
     "code review",
     "ready for review",
   ]),
-  github_done_columns: new Set([
-    "done",
-    "complete",
-    "completed",
-    "finished",
-  ]),
+  github_done_columns: new Set(["done", "complete", "completed", "finished"]),
 };
 
 const suggestedResourceValues = (
@@ -409,9 +428,7 @@ const suggestedResourceValues = (
   return options
     .filter((option) => {
       const value = option.value as Record<string, unknown> | undefined;
-      return names.has(
-        normalizedStatus(String(value?.name || option.label)),
-      );
+      return names.has(normalizedStatus(String(value?.name || option.label)));
     })
     .map(({ value }) => value);
 };
@@ -439,7 +456,9 @@ export function JoinWizard({
     Record<string, number>
   >({});
   const [options, setOptions] = useState<Record<string, ResourceOption[]>>({});
-  const [optionLoading, setOptionLoading] = useState<Record<string, boolean>>({});
+  const [optionLoading, setOptionLoading] = useState<Record<string, boolean>>(
+    {},
+  );
   const [optionRefresh, setOptionRefresh] = useState(0);
   const [repositoryPollingUntil, setRepositoryPollingUntil] = useState(0);
   const [searches, setSearches] = useState<Record<string, string>>({});
@@ -525,7 +544,9 @@ export function JoinWizard({
         if (cancelled) return;
         setJoinLinkUnavailable(true);
         setError(
-          cause instanceof Error ? cause.message : "Unable to load the join link",
+          cause instanceof Error
+            ? cause.message
+            : "Unable to load the join link",
         );
       })
       .finally(() => {
@@ -578,7 +599,9 @@ export function JoinWizard({
       .then((values) => {
         if (cancelled) return;
         setTemplates(values);
-        setTemplateId((current) => current || values[0]?.agreementTemplate._id || "");
+        setTemplateId(
+          (current) => current || values[0]?.agreementTemplate._id || "",
+        );
       })
       .catch((cause) => {
         if (!cancelled) {
@@ -602,7 +625,11 @@ export function JoinWizard({
     const value = await api<Onboarding>(`/onboardings/${onboardingId}`);
     setOnboarding(value);
     if (["COMPLETED", "FAILED"].includes(value.status)) {
-      setStep(buildSteps(value.onboardingDefinition).findIndex(({ kind }) => kind === "provision"));
+      setStep(
+        buildSteps(value.onboardingDefinition).findIndex(
+          ({ kind }) => kind === "provision",
+        ),
+      );
     }
   }, [onboardingId]);
 
@@ -612,25 +639,22 @@ export function JoinWizard({
     return () => clearInterval(timer);
   }, [onboarding?.status, refresh]);
 
-  const activeRequirements = useMemo(
-    () => {
-      if (activeStep?.kind === "requirements") return activeStep.requirements;
-      if (
-        activeStep?.kind === "integration" &&
-        onboarding &&
-        integrationConnected(
-          onboarding,
-          activeStep.module.id as IntegrationProvider,
-        ) &&
-        activeIntegrationSubstep > 0
-      )
-        return (
-          activeStep.groups[activeIntegrationSubstep - 1]?.requirements || []
-        );
-      return [];
-    },
-    [activeIntegrationSubstep, activeStep, onboarding],
-  );
+  const activeRequirements = useMemo(() => {
+    if (activeStep?.kind === "requirements") return activeStep.requirements;
+    if (
+      activeStep?.kind === "integration" &&
+      onboarding &&
+      integrationConnected(
+        onboarding,
+        activeStep.module.id as IntegrationProvider,
+      ) &&
+      activeIntegrationSubstep > 0
+    )
+      return (
+        activeStep.groups[activeIntegrationSubstep - 1]?.requirements || []
+      );
+    return [];
+  }, [activeIntegrationSubstep, activeStep, onboarding]);
   const optionDependencyKey = JSON.stringify(
     activeRequirements.flatMap((requirement) =>
       (requirement.dependsOn || []).map((dependency) => [
@@ -677,12 +701,17 @@ export function JoinWizard({
       } catch (cause) {
         if (!cancelled) {
           setError(
-            cause instanceof Error ? cause.message : "Unable to load available values",
+            cause instanceof Error
+              ? cause.message
+              : "Unable to load available values",
           );
         }
       } finally {
         if (!cancelled) {
-          setOptionLoading((current) => ({ ...current, [requirement.id]: false }));
+          setOptionLoading((current) => ({
+            ...current,
+            [requirement.id]: false,
+          }));
         }
       }
     };
@@ -752,7 +781,10 @@ export function JoinWizard({
           },
         }),
       });
-      const nextAnswers = defaultAnswers(value.onboardingDefinition, value.answers);
+      const nextAnswers = defaultAnswers(
+        value.onboardingDefinition,
+        value.answers,
+      );
       const nextSteps = buildSteps(value.onboardingDefinition);
       setOnboarding(value);
       setAnswers(nextAnswers);
@@ -775,7 +807,8 @@ export function JoinWizard({
         window.location.assign(value.authorizationUrl);
         return;
       }
-      if (!value.onboarding) throw new Error("Integration did not return a connection");
+      if (!value.onboarding)
+        throw new Error("Integration did not return a connection");
       setOnboarding(value.onboarding);
       if (
         activeStep?.kind === "integration" &&
@@ -797,7 +830,10 @@ export function JoinWizard({
     const cleared = new Set<string>();
     const collectDependents = (id: string) => {
       for (const requirement of definition.requirements) {
-        if ((requirement.dependsOn || []).includes(id) && !cleared.has(requirement.id)) {
+        if (
+          (requirement.dependsOn || []).includes(id) &&
+          !cleared.has(requirement.id)
+        ) {
           cleared.add(requirement.id);
           collectDependents(requirement.id);
         }
@@ -848,11 +884,7 @@ export function JoinWizard({
     if (activeStep?.kind !== "requirements") return;
     const missing = activeStep.requirements.find(
       (requirement) =>
-        !completeWithConfiguration(
-          requirement,
-          answers,
-          joinLinkConfiguration,
-        ),
+        !completeWithConfiguration(requirement, answers, joinLinkConfiguration),
     );
     if (missing) {
       setError(`Complete '${missing.ui.label}' before continuing.`);
@@ -1004,27 +1036,29 @@ export function JoinWizard({
 
   if (joinLinkLoading) {
     return (
-      <div className="card stack">
+      <Card className="min-w-0 gap-4 p-6">
         <Loading text="Loading join link configuration…" />
-      </div>
+      </Card>
     );
   }
 
   if (joinLinkUnavailable) {
     return (
-      <div className="card stack">
-        <div className="notice error" role="alert">
-          {error || "This join link is unavailable."}
-        </div>
-      </div>
+      <Card className="min-w-0 gap-4 p-6">
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            {error || "This join link is unavailable."}
+          </AlertDescription>
+        </Alert>
+      </Card>
     );
   }
 
   if (templatesLoading && !onboarding) {
     return (
-      <div className="card stack">
+      <Card className="min-w-0 gap-4 p-6">
         <Loading text="Loading onboarding steps…" />
-      </div>
+      </Card>
     );
   }
 
@@ -1037,24 +1071,28 @@ export function JoinWizard({
             className={`step ${index === step ? "active" : ""} ${completed || index < step ? "done" : ""}`}
             aria-current={index === step ? "step" : undefined}
           >
-            <span className="step-index">{completed || index < step ? "✓" : index + 1}</span>
+            <span className="step-index">
+              {completed || index < step ? "✓" : index + 1}
+            </span>
             <span>{candidate.label}</span>
           </div>
         ))}
       </aside>
 
-      <section className="card stack" aria-live="polite">
+      <Card className="min-w-0 gap-4 p-6" aria-live="polite">
         {error && (
-          <div className="notice error" role="alert">
-            {error}
-          </div>
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {activeStep?.kind === "agreement" && (
           <>
             <div>
               <div className="eyebrow">Registry catalog</div>
-              <h2>{agreementTemplateLocked ? "Agreement" : "Choose an agreement"}</h2>
+              <h2>
+                {agreementTemplateLocked ? "Agreement" : "Choose an agreement"}
+              </h2>
               <p>
                 {agreementTemplateLocked
                   ? "This agreement template was predefined by the organization administrator."
@@ -1062,18 +1100,20 @@ export function JoinWizard({
               </p>
             </div>
             {onboarding ? (
-              <div className="option selected">
+              <Card className="gap-2 border border-primary bg-primary/10 p-4">
                 <strong>{onboarding.agreementTemplate.displayName}</strong>
                 <span>{onboarding.agreementTemplate.description}</span>
-              </div>
+              </Card>
             ) : agreementTemplateLocked && joinLinkConfiguration ? (
-              <div className="option selected locked-option">
+              <Card className="gap-2 border border-primary bg-primary/10 p-4">
                 <strong>
                   {joinLinkConfiguration.agreementTemplate.value.displayName}
                 </strong>
-                <span>{joinLinkConfiguration.agreementTemplate.value.description}</span>
+                <span>
+                  {joinLinkConfiguration.agreementTemplate.value.description}
+                </span>
                 <span>Set by the join link</span>
-              </div>
+              </Card>
             ) : templatesLoading ? (
               <Loading text="Loading public agreements…" />
             ) : templates.length ? (
@@ -1084,18 +1124,23 @@ export function JoinWizard({
                     .map((module) => module.label)
                     .join(" + ");
                   return (
-                    <button
+                    <Button
                       type="button"
-                      className={`option ${templateId === option.agreementTemplate._id ? "selected" : ""}`}
+                      variant="outline"
+                      className={`h-auto flex-col items-start whitespace-normal p-4 text-left ${templateId === option.agreementTemplate._id ? "border-primary bg-primary/10" : ""}`}
+                      aria-pressed={templateId === option.agreementTemplate._id}
                       key={option.agreementTemplate._id}
-                      onClick={() => setTemplateId(option.agreementTemplate._id)}
+                      onClick={() =>
+                        setTemplateId(option.agreementTemplate._id)
+                      }
                     >
                       <strong>{option.agreementTemplate.displayName}</strong>
                       <span>{option.agreementTemplate.description}</span>
                       <span>
-                        {option.agreementTemplate.guarantees.length} guarantees · {integrations}
+                        {option.agreementTemplate.guarantees.length} guarantees
+                        · {integrations}
                       </span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -1103,39 +1148,41 @@ export function JoinWizard({
               <Empty text="No supported public Agreement Templates are available in Registry." />
             )}
             {selectedTemplate && (
-              <div className="notice">
-                The wizard will request {selectedTemplate.onboardingDefinition.requirements.length}
-                {" "}data fields across this onboarding.
-              </div>
+              <Alert role="status">
+                <AlertDescription>
+                  The wizard will request{" "}
+                  {selectedTemplate.onboardingDefinition.requirements.length}{" "}
+                  data fields across this onboarding.
+                </AlertDescription>
+              </Alert>
             )}
             {joinLinkConfiguration && (
-              <div className="notice">
-                Predefined onboarding values have been supplied by the organization. Fields marked
-                as set by the join link cannot be changed.
-              </div>
+              <Alert role="status">
+                <AlertDescription>
+                  Predefined onboarding values have been supplied by the
+                  organization. Fields marked as set by the join link cannot be
+                  changed.
+                </AlertDescription>
+              </Alert>
             )}
             <div className="actions">
-              <button
-                className="button secondary"
+              <Button
+                variant="outline"
                 onClick={() => setStep((current) => current - 1)}
               >
                 Back
-              </button>
+              </Button>
               {onboarding ? (
-                <button
-                  className="button"
-                  onClick={() => setStep((current) => current + 1)}
-                >
+                <Button onClick={() => setStep((current) => current + 1)}>
                   Continue
-                </button>
+                </Button>
               ) : (
-                <button
-                  className="button"
+                <Button
                   onClick={createOnboarding}
                   disabled={busy || !templateId}
                 >
                   Use agreement
-                </button>
+                </Button>
               )}
             </div>
           </>
@@ -1169,11 +1216,13 @@ export function JoinWizard({
             </div>
             {scopeNameFromRepository &&
               activeStep.requirements.some(({ id }) => id === "scope_name") && (
-                <div className="notice">
-                  {scopeNameParticipantEditable
-                    ? "Leave the Scope and agreement name blank to use the enrolled repository name automatically, or enter a different name."
-                    : "The Scope and agreement name will be set automatically from the enrolled repository."}
-                </div>
+                <Alert role="status">
+                  <AlertDescription>
+                    {scopeNameParticipantEditable
+                      ? "Leave the Scope and agreement name blank to use the enrolled repository name automatically, or enter a different name."
+                      : "The Scope and agreement name will be set automatically from the enrolled repository."}
+                  </AlertDescription>
+                </Alert>
               )}
             {renderRequirementFields(
               activeStep.requirements.filter(
@@ -1187,16 +1236,16 @@ export function JoinWizard({
             )}
             <div className="actions">
               {step > 0 && (
-                <button
-                  className="button secondary"
+                <Button
+                  variant="outline"
                   onClick={() => setStep((current) => current - 1)}
                 >
                   Back
-                </button>
+                </Button>
               )}
-              <button className="button" onClick={continueRequirements} disabled={busy}>
+              <Button onClick={continueRequirements} disabled={busy}>
                 Continue
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -1229,15 +1278,15 @@ export function JoinWizard({
             </dl>
             {!completed && (
               <div className="actions">
-                <button
-                  className="button secondary"
+                <Button
+                  variant="outline"
                   onClick={() => setStep((current) => current - 1)}
                 >
                   Back
-                </button>
-                <button className="button" onClick={() => provision()} disabled={busy}>
+                </Button>
+                <Button onClick={() => provision()} disabled={busy}>
                   Provision project
-                </button>
+                </Button>
               </div>
             )}
           </>
@@ -1266,45 +1315,61 @@ export function JoinWizard({
                   : "This page updates automatically and the worker resumes from its last checkpoint."}
               </p>
             </div>
-            <div
-              className={`notice ${completed ? "success" : onboarding?.status === "FAILED" ? "error" : ""}`}
+            <Alert
+              variant={
+                onboarding?.status === "FAILED" ? "destructive" : "default"
+              }
+              role="status"
             >
-              {completed
-                ? "All ecosystem provisioning steps completed."
-                : onboarding?.failure?.message || "Publishing is running in the background…"}
-            </div>
-            <div className="progress" aria-label={`${progress}% complete`}>
-              <div style={{ width: `${completed ? 100 : progress}%` }} />
-            </div>
+              <AlertDescription>
+                {completed
+                  ? "All ecosystem provisioning steps completed."
+                  : onboarding?.failure?.message ||
+                    "Publishing is running in the background…"}
+              </AlertDescription>
+            </Alert>
+            <Progress
+              value={completed ? 100 : progress}
+              aria-label="Onboarding completion"
+            />
             <div className="muted">
-              {onboarding?.checkpoints.length || 0} of {totalCheckpoints} steps completed
+              {onboarding?.checkpoints.length || 0} of {totalCheckpoints} steps
+              completed
             </div>
             {onboarding?.status === "FAILED" && (
               <div className="actions">
-                <button className="button" onClick={() => provision(true)} disabled={busy}>
+                <Button onClick={() => provision(true)} disabled={busy}>
                   Retry from checkpoint
-                </button>
+                </Button>
               </div>
             )}
           </>
         )}
 
         {completed && scopeAndAgreement && (
-          <details className="notice">
-            <summary>Inspect Scope and Agreement data</summary>
-            <pre style={{ overflow: "auto", whiteSpace: "pre-wrap" }}>
-              {JSON.stringify(scopeAndAgreement, null, 2)}
-            </pre>
-          </details>
+          <Accordion type="single" collapsible>
+            <AccordionItem value="result-data">
+              <AccordionTrigger>
+                Inspect Scope and Agreement data
+              </AccordionTrigger>
+              <AccordionContent>
+                <pre style={{ overflow: "auto", whiteSpace: "pre-wrap" }}>
+                  {JSON.stringify(scopeAndAgreement, null, 2)}
+                </pre>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         )}
-        {completed && (onboarding.result?.organizationURL || onboarding.result?.dashboardURL) && (
-          <div className="actions">
-            <OnboardingResultLinks onboarding={onboarding} />
-          </div>
-        )}
+        {completed &&
+          (onboarding.result?.organizationURL ||
+            onboarding.result?.dashboardURL) && (
+            <div className="actions">
+              <OnboardingResultLinks onboarding={onboarding} />
+            </div>
+          )}
 
         {busy && <Loading text="Working…" />}
-      </section>
+      </Card>
     </div>
   );
 }
@@ -1351,10 +1416,16 @@ function IntegrationStep({
             : "Connect GitHub and complete the repository, Project and member configuration required by this agreement."}
         </p>
       </div>
-      <div className="integration-substeps" aria-label={`${module.label} setup progress`}>
-        {["Connect", ...groups.map((candidate) =>
-          integrationSubstepLabel(module, candidate),
-        )].map((label, index) => (
+      <div
+        className="integration-substeps"
+        aria-label={`${module.label} setup progress`}
+      >
+        {[
+          "Connect",
+          ...groups.map((candidate) =>
+            integrationSubstepLabel(module, candidate),
+          ),
+        ].map((label, index) => (
           <div
             className={`integration-substep ${index === substep ? "active" : ""} ${index < substep ? "done" : ""}`}
             key={`${index}:${label}`}
@@ -1375,15 +1446,19 @@ function IntegrationStep({
             </p>
           </div>
           {connected ? (
-            <div className="notice success">
-              Connected to {account || module.label}
-            </div>
+            <Alert role="status" className="text-green-700 dark:text-green-400">
+              <AlertDescription>
+                Connected to {account || module.label}
+              </AlertDescription>
+            </Alert>
           ) : (
-            <div className="notice">
-              {module.authorization === "mock"
-                ? "A simulated workspace and users will become available."
-                : "GitHub will return you to this same setup step after authorization."}
-            </div>
+            <Alert role="status">
+              <AlertDescription>
+                {module.authorization === "mock"
+                  ? "A simulated workspace and users will become available."
+                  : "GitHub will return you to this same setup step after authorization."}
+              </AlertDescription>
+            </Alert>
           )}
         </>
       ) : group ? (
@@ -1396,16 +1471,16 @@ function IntegrationStep({
         </>
       ) : null}
       <div className="actions">
-        <button className="button secondary" onClick={onBack}>
+        <Button variant="outline" onClick={onBack}>
           Back
-        </button>
-        <button className="button" onClick={onContinue} disabled={busy}>
+        </Button>
+        <Button onClick={onContinue} disabled={busy}>
           {substep === 0 && !connected
             ? module.authorization === "mock"
               ? "Connect demo"
               : "Connect GitHub"
             : "Continue"}
-        </button>
+        </Button>
       </div>
     </>
   );
@@ -1445,56 +1520,67 @@ function MemberDetailsField({
   };
 
   return (
-    <div className="field">
-      <span className="label">{requirement.ui.label}</span>
-      {requirement.ui.help && <span className="muted">{requirement.ui.help}</span>}
+    <Field>
+      <FieldTitle>{requirement.ui.label}</FieldTitle>
+      {requirement.ui.help && (
+        <FieldDescription>{requirement.ui.help}</FieldDescription>
+      )}
       <div className="member-details-list">
         {selectedMembers.map((username, index) => {
           const detail = detailsByUsername.get(username);
           const idPrefix = `${requirement.id}-${index}`;
           return (
-            <fieldset className="member-details-card" key={username}>
-              <legend>@{username}</legend>
+            <FieldSet className="member-details-card" key={username}>
+              <FieldLegend>@{username}</FieldLegend>
               <div className="member-details-grid">
-                <div className="field">
-                  <label htmlFor={`${idPrefix}-first-name`}>First Name</label>
-                  <input
+                <Field>
+                  <FieldLabel htmlFor={`${idPrefix}-first-name`}>
+                    First Name
+                  </FieldLabel>
+                  <Input
                     id={`${idPrefix}-first-name`}
-                    className="input"
                     type="text"
                     value={detail?.firstName || ""}
-                    onChange={(event) => update(username, "firstName", event.target.value)}
+                    onChange={(event) =>
+                      update(username, "firstName", event.target.value)
+                    }
                     required
                   />
-                </div>
-                <div className="field">
-                  <label htmlFor={`${idPrefix}-last-name`}>Last Name</label>
-                  <input
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${idPrefix}-last-name`}>
+                    Last Name
+                  </FieldLabel>
+                  <Input
                     id={`${idPrefix}-last-name`}
-                    className="input"
                     type="text"
                     value={detail?.lastName || ""}
-                    onChange={(event) => update(username, "lastName", event.target.value)}
+                    onChange={(event) =>
+                      update(username, "lastName", event.target.value)
+                    }
                     required
                   />
-                </div>
-                <div className="field">
-                  <label htmlFor={`${idPrefix}-email`}>E-mail address</label>
-                  <input
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`${idPrefix}-email`}>
+                    E-mail address
+                  </FieldLabel>
+                  <Input
                     id={`${idPrefix}-email`}
-                    className="input"
                     type="email"
                     value={detail?.email || ""}
-                    onChange={(event) => update(username, "email", event.target.value)}
+                    onChange={(event) =>
+                      update(username, "email", event.target.value)
+                    }
                     required
                   />
-                </div>
+                </Field>
               </div>
-            </fieldset>
+            </FieldSet>
           );
         })}
       </div>
-    </div>
+    </Field>
   );
 }
 
@@ -1509,12 +1595,16 @@ function ReviewAnswer({ label, value }: { label: string; value: string }) {
 
 function Loading({ text }: { text: string }) {
   return (
-    <div className="row muted">
-      <span className="spinner" /> {text}
+    <div className="row muted" role="status">
+      <LoaderCircle aria-hidden="true" className="size-5 animate-spin" /> {text}
     </div>
   );
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="notice">{text}</div>;
+  return (
+    <Alert role="status">
+      <AlertDescription>{text}</AlertDescription>
+    </Alert>
+  );
 }

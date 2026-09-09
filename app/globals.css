@@ -56,11 +56,10 @@
   --background: oklch(1 0 0);
   --foreground: oklch(0.148 0.004 228.8);
 
-  /* Temporary aliases for screens that still use the legacy Join classes. */
+  /* Colors used by the onboarding step indicators. */
   --surface: var(--card);
   --primary-dark: color-mix(in oklch, var(--primary), black 20%);
   --primary-soft: color-mix(in oklch, var(--primary) 10%, var(--background));
-  --danger: var(--destructive);
   --success: oklch(0.527 0.154 150.069);
 }
 
@@ -99,26 +98,13 @@
   }
 }
 
-/*
- * Legacy Join styles. These remain in the components layer so Tailwind
- * utilities can override them as each screen moves to shared primitives.
- */
+/* Join-specific layouts and onboarding step indicators. */
 @layer components {
-  .shell { min-height: 100vh; display: flex; flex-direction: column; }
-  .topbar { height: 68px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; }
-  .topbar-link { color: var(--primary-dark); font-size: 14px; font-weight: 700; text-decoration: none; }
-  .topbar-link:hover { text-decoration: underline; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.02em; }
-  .brand-mark { width: 30px; height: 30px; border-radius: 9px; color: var(--primary-foreground); display: grid; place-items: center; background: var(--primary); }
-  .page { width: min(1100px, calc(100% - 32px)); margin: 42px auto 80px; }
-  .hero { margin-bottom: 28px; }
-  .compact-hero { max-width: 720px; }
   .eyebrow { color: var(--primary); font-size: 13px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
   h1 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; line-height: 1.08; }
   h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.02em; }
   h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -.01em; }
   p { color: var(--muted-foreground); line-height: 1.55; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: 0 8px 30px color-mix(in oklch, var(--foreground) 5%, transparent); }
   .wizard { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
   .steps { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 24px; }
   .step { padding: 12px; border-radius: 10px; color: var(--muted-foreground); font-size: 14px; display: flex; gap: 10px; align-items: center; }
@@ -136,60 +122,32 @@
   .integration-substep.done { color: var(--success); }
   .integration-substep.done:not(:first-child)::before { background: var(--success); }
   .integration-substep.done > span { border-color: var(--success); background: color-mix(in oklch, var(--success) 10%, var(--background)); }
-  .stack { display: flex; flex-direction: column; gap: 18px; }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 6px; }
-  .button { border: 0; border-radius: 10px; min-height: 42px; padding: 0 17px; background: var(--primary); color: var(--primary-foreground); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
-  .button:hover { background: var(--primary-dark); }
-  .button.secondary { background: var(--background); color: var(--foreground); border: 1px solid var(--border); }
-  .button:disabled { opacity: .55; cursor: not-allowed; }
-  .field { display: flex; flex-direction: column; gap: 7px; }
-  .field label, .label { font-size: 13px; font-weight: 700; }
-  .input { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); padding: 0 12px; color: var(--foreground); }
-  .input:focus { outline: 3px solid color-mix(in oklch, var(--primary) 14%, transparent); border-color: var(--primary); }
+  .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 6px; }
   .member-details-list { display: flex; flex-direction: column; gap: 12px; }
   .member-details-card { min-width: 0; margin: 0; padding: 15px; border: 1px solid var(--border); border-radius: 12px; }
   .member-details-card legend { padding: 0 6px; color: var(--primary-dark); font-size: 14px; font-weight: 750; }
   .member-details-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-  .option { border: 1px solid var(--border); border-radius: 12px; padding: 15px; background: var(--background); text-align: left; }
-  .option.selected { border-color: var(--primary); background: var(--primary-soft); }
-  .option.locked-option { cursor: default; }
-  .option strong { display: block; margin-bottom: 4px; }
-  .option span { color: var(--muted-foreground); font-size: 13px; }
-  .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
-  .check { display: flex; gap: 9px; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
-  .notice { padding: 13px 15px; border-radius: 10px; background: var(--primary-soft); color: var(--primary-dark); font-size: 14px; }
-  .notice.error { color: var(--danger); background: color-mix(in oklch, var(--danger) 8%, var(--background)); }
-  .notice.success { color: var(--success); background: color-mix(in oklch, var(--success) 8%, var(--background)); }
   .summary { display: grid; grid-template-columns: 180px 1fr; gap: 10px; font-size: 14px; }
   .summary dt { color: var(--muted-foreground); }
   .summary dd { margin: 0; font-weight: 650; word-break: break-word; }
-  .progress { height: 9px; background: var(--muted); border-radius: 99px; overflow: hidden; }
-  .progress > div { height: 100%; background: var(--primary); transition: width .35s; }
   .muted { color: var(--muted-foreground); }
-  .spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
   .admin-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr); gap: 24px; align-items: start; }
   .configured-field { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
   .configured-field legend { padding: 0 7px; font-size: 14px; font-weight: 750; }
   .configured-field-content { display: flex; flex-direction: column; gap: 14px; margin-top: 13px; }
   .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-foreground); font-size: 13px; }
-  .toggle input { accent-color: var(--primary); }
   .link-history { min-width: 0; position: sticky; top: 24px; }
   .link-list { display: flex; flex-direction: column; gap: 12px; }
-  .link-card { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
   .link-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
   .link-card-header > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .link-card-header strong { overflow-wrap: anywhere; }
   .link-card-header .muted { font-size: 12px; }
-  .compact-button { min-height: 34px; padding: 0 12px; font-size: 13px; }
   .link-url { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   .badge-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
-  .badge { border-radius: 999px; padding: 4px 8px; background: var(--muted); color: var(--muted-foreground); font-size: 11px; font-weight: 700; }
-  .badge.editable { background: var(--primary-soft); color: var(--primary-dark); }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 760px) {
     .wizard { grid-template-columns: 1fr; }
@@ -199,6 +157,5 @@
     .grid-2, .member-details-grid { grid-template-columns: 1fr; }
     .admin-grid { grid-template-columns: 1fr; }
     .link-history { position: static; }
-    .topbar { padding: 0 16px; }
   }
 }
