@@ -409,10 +409,10 @@ export function JoinLinkManager() {
               />
               <InputGroupAddon
                 align="inline-end"
-                className="h-full shrink-0 border-l px-3"
+                className="h-full shrink-0 border-l px-2"
               >
                 <FieldLabel
-                  className="flex h-full cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                  className="flex h-full cursor-pointer items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
                   title="Use the enrolled repository name automatically"
                 >
                   <Checkbox
@@ -428,9 +428,7 @@ export function JoinLinkManager() {
                       }
                     }}
                   />
-                  <span className="whitespace-nowrap peer-data-[state=checked]:text-primary">
-                    Auto
-                  </span>
+                  <span className="whitespace-nowrap">Auto</span>
                 </FieldLabel>
               </InputGroupAddon>
             </InputGroup>
@@ -441,9 +439,9 @@ export function JoinLinkManager() {
             )}
           </ConfiguredField>
 
-          <FieldSet className="configured-field">
-            <FieldLegend>Result options</FieldLegend>
-            <div className="configured-field-content">
+          <FieldSet className="configured-field gap-2">
+            <FieldLegend className="mb-0">Result options</FieldLegend>
+            <div className="flex flex-col gap-2">
               <FieldDescription>
                 Only selected result data will be sent to participants after
                 onboarding.
@@ -453,7 +451,7 @@ export function JoinLinkManager() {
                   resultOptionLabels,
                 ) as (keyof JoinLinkResultOptions)[]
               ).map((option) => (
-                <FieldLabel className="toggle" key={option}>
+                <FieldLabel className="toggle gap-1.5" key={option}>
                   <Checkbox
                     checked={resultOptions[option]}
                     onCheckedChange={(checked) =>
@@ -579,16 +577,16 @@ function ConfiguredField({
   children: React.ReactNode;
 }) {
   return (
-    <FieldSet className="configured-field">
-      <FieldLegend>{label}</FieldLegend>
-      <FieldLabel className="toggle">
+    <FieldSet className="configured-field gap-2">
+      <FieldLegend className="mb-0">{label}</FieldLegend>
+      <FieldLabel className="toggle gap-1.5">
         <Checkbox
           checked={editable}
           onCheckedChange={(checked) => onEditableChange(checked === true)}
         />
         Participant can change this value
       </FieldLabel>
-      <div className="configured-field-content">{children}</div>
+      <div className="flex flex-col gap-2">{children}</div>
     </FieldSet>
   );
 }
