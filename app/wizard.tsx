@@ -246,12 +246,21 @@ const completeWithConfiguration = (
   requirement: Requirement,
   answers: Answers,
   configuration?: JoinLinkConfiguration,
-) =>
-  requirement.id === "scope_name" &&
-  configuration?.scopeName.fromRepository &&
-  answers.github_repository === undefined
-    ? true
-    : complete(requirement, answers[requirement.id]);
+) => {
+  const value = answers[requirement.id];
+  if (
+    requirement.id === "scope_name" &&
+    configuration?.scopeName.fromRepository &&
+    (value === undefined || value === "")
+  ) {
+    if (answers.github_repository === undefined) return true;
+    return (
+      isRecord(answers.github_repository) &&
+      complete(requirement, slug(String(answers.github_repository.name || "")))
+    );
+  }
+  return complete(requirement, value);
+};
 
 const initialStep = (
   onboarding: Onboarding | undefined,
@@ -296,9 +305,15 @@ const initialStep = (
       )
     );
   });
-  return incomplete >= 0
-    ? incomplete
-    : steps.findIndex(({ kind }) => kind === "review");
+  if (incomplete >= 0) return incomplete;
+  // Filled answers can still be an unvalidated draft. Revisit the last
+  // configuration step so its Continue action submits final validation.
+  const reviewIndex = steps.findIndex(({ kind }) => kind === "review");
+  for (let index = reviewIndex - 1; index >= 0; index -= 1) {
+    if (["integration", "requirements"].includes(steps[index].kind))
+      return index;
+  }
+  return reviewIndex >= 0 ? reviewIndex : 0;
 };
 
 const initialIntegrationSubstep = (
@@ -963,10 +978,13 @@ export function JoinWizard({
       return;
     }
     void run(async () => {
+      const finalConfiguration =
+        activeIntegrationSubstep === integration.groups.length &&
+        steps[step + 1]?.kind === "review";
       const value = await api<Onboarding>(
-        `/onboardings/${onboarding._id}/answers`,
+        `/onboardings/${onboarding._id}/${finalConfiguration ? "configuration" : "answers"}`,
         {
-          method: "PATCH",
+          method: finalConfiguration ? "PUT" : "PATCH",
           body: JSON.stringify({ answers }),
         },
       );
@@ -985,6 +1003,7 @@ export function JoinWizard({
 
   const backIntegration = () => {
     if (activeStep?.kind !== "integration") return;
+    setError("");
     if (activeIntegrationSubstep > 0) {
       setIntegrationSubsteps((current) => ({
         ...current,
@@ -995,8 +1014,15 @@ export function JoinWizard({
     setStep((current) => current - 1);
   };
 
+  const back = () => {
+    setError("");
+    setStep((current) => Math.max(0, current - 1));
+  };
+
   const provision = (retry = false) =>
     run(async () => {
+      if (!retry && onboarding?.status !== "READY")
+        throw new Error("Complete configuration before publishing.");
       const value = await api<Onboarding>(
         `/onboardings/${onboarding!._id}/${retry ? "retry" : "provision"}`,
         { method: "POST" },
@@ -1210,12 +1236,19 @@ export function JoinWizard({
             <div className="actions">
               <Button
                 variant="outline"
-                onClick={() => setStep((current) => current - 1)}
+                onClick={back}
+                disabled={busy || step === 0}
               >
                 Back
               </Button>
               {onboarding ? (
-                <Button onClick={() => setStep((current) => current + 1)}>
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    setError("");
+                    setStep((current) => current + 1);
+                  }}
+                >
                   Continue
                 </Button>
               ) : (
@@ -1280,7 +1313,8 @@ export function JoinWizard({
               {step > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => setStep((current) => current - 1)}
+                  onClick={back}
+                  disabled={busy}
                 >
                   Back
                 </Button>
@@ -1322,11 +1356,15 @@ export function JoinWizard({
               <div className="actions">
                 <Button
                   variant="outline"
-                  onClick={() => setStep((current) => current - 1)}
+                  onClick={back}
+                  disabled={busy}
                 >
                   Back
                 </Button>
-                <Button onClick={() => provision()} disabled={busy}>
+                <Button
+                  onClick={() => provision()}
+                  disabled={busy || onboarding.status !== "READY"}
+                >
                   Provision project
                 </Button>
               </div>
@@ -1513,7 +1551,7 @@ function IntegrationStep({
         </>
       ) : null}
       <div className="actions">
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} disabled={busy}>
           Back
         </Button>
         <Button onClick={onContinue} disabled={busy}>
