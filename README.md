@@ -1,36 +1,20 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Governify Join Frontend
 
-## Getting Started
+Next.js wizard for onboarding provider projects into Governify. The login-protected root page lists the current user's onboardings, most recently updated first. Unfinished onboardings can be resumed or deleted; completed onboardings link to their summary and show organization/dashboard buttons when enabled by their join-link result options. Publishing entries refresh automatically.
 
-First, run the development server:
+New onboardings start from `?joinLink=<id>`. Both saved progress and completed summaries open at `?onboarding=<id>`. Completed onboardings open the wizard's Review step with saved answers and enabled result outputs, without edit or publish actions. Deleting an unfinished onboarding removes saved progress and stops publishing at its next save; any resources already published remain in the ecosystem.
+
+Each selected agreement returns a versioned onboarding definition. The wizard renders one main step per external integration and presents that module's requirement groups as progressive internal sub-steps. GitHub becomes `Connect → Repository → Project → Members`, omitting sub-steps not required by the selected agreement. It uses OAuth-first discovery: existing App installations return directly to Repository, while users without an installation are forwarded through installation automatically. The remaining guided fields include dependent resource selectors, single/multiple choices, text, validity, review, and provisioning progress. ZenHub uses explicit demo mocks. Join Backend publishes the completed Scope, Agreement collection and Agreement version, starts an immediate calculation and schedules hourly calculations.
+
+The browser talks only to same-origin Next route handlers. Governify access and refresh tokens remain in secure HTTP-only cookies and external service URLs remain server-side. A rejected access token triggers one coordinated refresh and request retry; if the refresh token is no longer valid, Join clears the session and returns the user to login while preserving the onboarding URL.
+
+## Local development
+
+Copy `.env.example` to `.env.local`, ensure Authenticator and join-backend are running, then:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The standalone join-backend default is `http://localhost:5907`. Open the frontend at `http://localhost:3000`.
