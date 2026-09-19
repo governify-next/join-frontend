@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/governify-next/join-frontend/compare/v1.1.0...v1.1.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* new version ([a498cae](https://github.com/governify-next/join-frontend/commit/a498cae5cbe4094faa33456a0258990796989c93))
+
 ## 1.1.0 (2026-09-14)
 
 
