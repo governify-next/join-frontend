@@ -8,6 +8,8 @@ Each selected agreement returns a versioned onboarding definition. The wizard re
 
 The browser talks only to same-origin Next route handlers. Governify access and refresh tokens remain in secure HTTP-only cookies and external service URLs remain server-side. A rejected access token triggers one coordinated refresh and request retry; if the refresh token is no longer valid, Join clears the session and returns the user to login while preserving the onboarding URL.
 
+The shared header shows the signed-in username and a Log out button on onboarding and join-link pages. Logout revokes the current refresh token through Authenticator, clears the Join session cookies, and returns to login. Local cookies are cleared even when Authenticator is unavailable.
+
 ## Local development
 
 Copy `.env.example` to `.env.local`, ensure Authenticator and join-backend are running, then:
