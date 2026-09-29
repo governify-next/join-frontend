@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/governify-next/join-frontend/compare/v1.1.1...v1.2.0) (2026-09-29)
+
+
+### Features
+
+* **auth:** show current username and add logout ([5496e7b](https://github.com/governify-next/join-frontend/commit/5496e7b310b702741cbfcd141fb8a7bd44ace40f))
+* **auth:** show current username and add logout ([9269bb0](https://github.com/governify-next/join-frontend/commit/9269bb0695cae35e62422d6f50dd66f03813342b))
+
 ## [1.1.1](https://github.com/governify-next/join-frontend/compare/v1.1.0...v1.1.1) (2026-09-19)
 
 
