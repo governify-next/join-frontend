@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OnboardingList } from "./onboarding-list";
 import { JoinWizard } from "./wizard";
+import { env } from "@/lib/config";
 
 type HomeSearchParams = {
   onboarding?: string;
@@ -31,17 +32,17 @@ export default async function Home({
 
   return (
     <AppShell
-      eyebrow="Governify ecosystem"
+      eyebrow={`${env.FRONTEND_APP_NAME} ecosystem`}
       title={
         showOnboardings
-          ? "Your projects in Governify."
-          : "Bring your project into Governify."
+          ? `Your projects in ${env.FRONTEND_APP_NAME}.`
+          : `Bring your project into ${env.FRONTEND_APP_NAME}.`
       }
       description={
         <p>
           {showOnboardings
             ? "Keep track of your onboardings, continue setting up a project, and access your completed results."
-            : "Choose a Governify destination and agreement template, connect only the services it needs, and complete the guided setup."}
+            : `Choose a ${env.FRONTEND_APP_NAME} destination and agreement template, connect only the services it needs, and complete the guided setup.`}
         </p>
       }
       action={
@@ -81,6 +82,7 @@ export default async function Home({
         <OnboardingList />
       ) : (
         <JoinWizard
+          appName={env.FRONTEND_APP_NAME}
           key={id || joinLink}
           initialId={id}
           initialJoinLinkId={joinLink}

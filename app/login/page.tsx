@@ -2,6 +2,7 @@ import { Workflow } from "lucide-react";
 
 import { GovernifyBrand } from "@/components/governify-brand";
 import { LoginForm } from "./login-form";
+import { env } from "@/lib/config";
 
 export default async function LoginPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function LoginPage({
               </p>
               <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
               <p className="text-sm text-balance text-muted-foreground">
-                Use your Governify ecosystem account to continue.
+                Use your {env.FRONTEND_APP_NAME} ecosystem account to continue.
               </p>
             </div>
             <LoginForm returnTo={next || "/"} />
@@ -43,8 +44,8 @@ export default async function LoginPage({
               Connect your engineering workflow.
             </h2>
             <p className="leading-relaxed text-muted-foreground">
-              Turn repository and project data into a live Governify agreement
-              in a guided flow.
+              Turn repository and project data into a live {env.FRONTEND_APP_NAME}
+              {" "}agreement in a guided flow.
             </p>
           </div>
         </div>

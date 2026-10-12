@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { env } from "@/lib/config";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -15,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Join Governify",
-  description: "Onboard projects into the Governify ecosystem",
+  title: `Join ${env.FRONTEND_APP_NAME}`,
+  description: `Onboard projects into the ${env.FRONTEND_APP_NAME} ecosystem`,
 };
 
 export default function RootLayout({

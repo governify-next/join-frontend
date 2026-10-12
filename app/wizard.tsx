@@ -458,9 +458,11 @@ const suggestedResourceValues = (
 };
 
 export function JoinWizard({
+  appName,
   initialId,
   initialJoinLinkId,
 }: {
+  appName: string;
   initialId?: string;
   initialJoinLinkId?: string;
 }) {
@@ -1387,7 +1389,7 @@ export function JoinWizard({
                   ? "Your project is connected"
                   : onboarding?.status === "FAILED"
                     ? "Publishing stopped"
-                    : "Setting up Governify"}
+                    : `Setting up ${appName}`}
               </h2>
               <p>
                 {completed

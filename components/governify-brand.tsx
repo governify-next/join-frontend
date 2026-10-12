@@ -1,4 +1,5 @@
 import { GalleryVerticalEnd } from "lucide-react";
+import { env } from "@/lib/config";
 
 export function GovernifyBrand({ product = "Join" }: { product?: string }) {
   return (
@@ -6,7 +7,9 @@ export function GovernifyBrand({ product = "Join" }: { product?: string }) {
       <span className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
         <GalleryVerticalEnd className="size-4" aria-hidden="true" />
       </span>
-      <span>Governify {product}</span>
+      <span>
+        {env.FRONTEND_APP_NAME} {product}
+      </span>
     </div>
   );
 }

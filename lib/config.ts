@@ -1,4 +1,5 @@
 export const env = {
+  FRONTEND_APP_NAME: process.env.FRONTEND_APP_NAME || "Governify Next",
   AUTHENTICATOR_SERVICE_URL:
     process.env.AUTHENTICATOR_SERVICE_URL || "http://localhost:5900",
   JOIN_BACKEND_URL: process.env.JOIN_BACKEND_URL || "http://localhost:5907",
